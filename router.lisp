@@ -80,6 +80,20 @@
 					   peer-id
 					   rib-adj-entry
 					   +RIB-ENTRY-flag-new-announcement+)))))
+   (WITHDRAWL-RIB-ADJ->RIB-LOC
+    (let ((peer-id            (MSG-get-arg1 %message))
+	  (rib-adj-entry-list (MSG-get-arg2 %message)))
+      
+      (setf rib-loc-flags (logior +rib-entry-flag-new-withdrawl+
+				  rib-loc-flags))
+
+      (dolist (rib-adj-entry rib-adj-entry-list)
+	(let ((rib-entry (RIB-LOC-find-rib-entry RIB-Loc
+						 peer-id
+						 rib-adj-entry)))
+	  (if rib-entry
+	      (RIB-ENTRY-set-new-withdrawl-flag rib-entry))))))
+      
    (PRINT-ENV2
     (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%RIB-Loc-flagst: ~S~%router-config: ~S~%peer-configs: ~S~%"
 	    %this-thread-name
@@ -95,12 +109,12 @@
 
    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-announcement+))
 
-     (format t "~&ENTERING LOOP-END-BLOCK process ipv4 announcements~%")
+     (format t "~&ENTERING LOOP-END-BLOCK process announcements~%")
      
      (let ((new-announcements (RIB-LOC-update-collect-entries rib-loc
 							      :test-fn #'RIB-ENTRY-new-announcement-flag-setp
 							      :update-fn #'RIB-ENTRY-clear-new-announcement-flag
-							      :collect t)))
+							      :collect? t)))
         (loop for peer-thread in peer-threads
 	      do (let ((rib-adj-entries
 			 (map 'list #'RIB-ENTRY-get-rib-adj-entry
@@ -117,7 +131,20 @@
    
    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-withdrawl+))
      ;; process withdrawls
-
+     (format t "~&ENTERING LOOP-END-BLOCK process withdrawls~%")
+     (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
+							   :test-fn #'RIB-ENTRY-new-withdrawl-flag-setp
+							   :collect? t)))
+       (loop for peer-thread in peer-threads
+	      do (let ((rib-adj-entries
+			 (map 'list #'RIB-ENTRY-get-rib-adj-entry
+			      (remove-if #'(lambda (x) (eq (THREAD-get-thread-name-symbol peer-thread)
+								    (RIB-ENTRY-get-peer-id x)))
+						  new-withdrawls))))
+		  (when rib-adj-entries
+		    (THREAD-send-message peer-thread
+					 (MSG-make 'WITHDRWAL-RIB-LOC->RIB-ADJ rib-adj-entries))))))
+     
      ; clear new-withdrawl-flag
      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-withdrawl+
 					        rib-loc-flags)))

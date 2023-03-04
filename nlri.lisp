@@ -109,6 +109,10 @@
 (defun NLRI-typep (obj) (typep obj 'NLRI))
 (defun NLRI-WITHDRAWL-typep (obj) (typep obj 'NLRI-WITHDRAWL))
 
+(defun NLRI/NLRI-WITHDRAWL-equal (n1 n2)
+  "Equal function to be used whrn comparing NLRI with NLRI-WITHDRWAL. Ignores head of list"
+  (equal (cdr n1) (cdr n2)))
+
 (defun NLRI-ipv4-unicast-valid2-p (obj)
   (and (eq 'NLRI (TL-get-name obj))
        (= (NLRI-get-afisafi obj) +AFISAFI-ipv4-unicast+)

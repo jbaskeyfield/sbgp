@@ -40,12 +40,12 @@
 					   :peer-asn 65533
 					   :peer-ip-address '(ipv4 #x0a0a0a0b)))
 
-(defparameter router1-rib-loc (RIB-LOC-make 8))
-(defparameter router1-peer1-rib-adj-in (RIB-ADJ-make 8))
-(defparameter router1-peer1-rib-adj-out (RIB-ADJ-make 8))
+(defparameter router1-rib-loc (RIB-LOC-make 5))
+(defparameter router1-peer1-rib-adj-in (RIB-ADJ-make 5))
+(defparameter router1-peer1-rib-adj-out (RIB-ADJ-make 5))
 
-(defparameter router1-peer2-rib-adj-in (RIB-ADJ-make 8))
-(defparameter router1-peer2-rib-adj-out (RIB-ADJ-make 8))
+(defparameter router1-peer2-rib-adj-in (RIB-ADJ-make 5))
+(defparameter router1-peer2-rib-adj-out (RIB-ADJ-make 5))
 
 (tx q1 'set 'rib-loc router1-rib-loc)
 (tx q1 'to 'router1-peer1 'set 'rib-adj-in router1-peer1-rib-adj-in)

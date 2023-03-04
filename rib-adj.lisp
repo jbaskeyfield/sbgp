@@ -119,42 +119,67 @@ Returns three values
 		    ;;  (format t "~&PUSHING TO OCCUPIED SLOT~%")
 		    (values rib-adj-entry :added-new-entry nil))))))))
 
-(defun RIB-ADJ-remove (rib-adj nlri)
+(defun RIB-ADJ-remove-entry (rib-adj rib-adj-entry)
+  "Returns RIB-ADJ-ENTRY if entry was found and removed from table RIB-ADJ. Returns NIL if not found."
+  (incf (RIB-ADJ-get-update-count rib-adj))
+  (let* ((nlri (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
+	 (table-index (logand (NLRI-zhash 0 nlri)                                           ; calculate hash table index from zhash
+			      (RIB-ADJ-get-table-mask rib-adj)))           
+	 (table-slot-value (svref (RIB-ADJ-get-rib-adj-table rib-adj)                       ; ; get list of rib-adj-entry from slot 
+				  table-index)))
+    (cond (table-slot-value
+	   (let ((matching-rib-adj-entry (find rib-adj-entry
+					       table-slot-value
+					       :test #'equal)))
+	     (cond (matching-rib-adj-entry                                                  ; if found
+		    (cond ((= (length table-slot-value) 1)                                  ;  if is sole entry in the hash table slot
+			   (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)   
+				 nil)                                                       ;   set has table slot to nil
+			   (decf (RIB-ADJ-get-entries-count rib-adj))                       ;   decrement entries count
+			   (incf (RIB-ADJ-get-empty-slot-count rib-adj))                    ;   increment empty slot count
+			   matching-rib-adj-entry)                                          ;   return deleted rib-adj-entry
+			  (t                                                                ;  otherwise, 
+			   (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)   
+				  (remove-if #'(lambda (x) (eq x matching-rib-adj-entry))
+					     table-slot-value))                             ;   remove entry from list
+			    (decf (RIB-ADJ-get-entries-count rib-adj))                      ;   decrement entry count
+			    matching-rib-adj-entry)))                                       ;   return deleted rib-adj-entry
+		   
+		   (t                                                                       ; otherwise, entry not found
+		    nil)))))))                                                              ;  return nil.
+	  
+
+(defun RIB-ADJ-remove-nlri (rib-adj nlri)
+  "Removes rib-adj-entry from table RIB-ADJ that matches the passed NLRI. 
+Returns RIB-ADJ-ENTRY removed from the table if found. Returns nil if not found."
 
   (incf (RIB-ADJ-get-update-count rib-adj))
   
-  (let*  ((table-index (logand (NLRI-zhash 0 nlri)
+  (let*  ((table-index (logand (NLRI-zhash 0 nlri)                                          ; calculate hash table index from zhash
 			       (RIB-ADJ-get-table-mask rib-adj)))          
-	  (table-slot-value (svref (RIB-ADJ-get-rib-adj-table rib-adj)   
+	  (table-slot-value (svref (RIB-ADJ-get-rib-adj-table rib-adj)                      ; get list of rib-adj-entry from slot 
 				   table-index)))
 
-    (cond (table-slot-value
-	   (let ((matching-nlri-record (find nlri
-					     table-slot-value
-					     :key #'RIB-ADJ-ENTRY-get-nlri
-					     :test #'equal)))
-	     (cond ((and matching-nlri-record
-			 (equal nlri
-			        (RIB-ADJ-ENTRY-get-nlri matching-nlri-record)))
-		    (cond  ((= (length table-slot-value) 1)                                  
-			    (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)
-				  nil)
-			    (decf (RIB-ADJ-get-entries-count rib-adj))
-			    (incf (RIB-ADJ-get-empty-slot-count rib-adj))
-			    :removed-entry-slot-now-empty)
-			   (t
-			    (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)
-				  (remove-if #'(lambda (x) (eq x matching-nlri-record))
-					     table-slot-value))
-			    (decf (RIB-ADJ-get-entries-count rib-adj))
-			    :removed-entry-slot-still-occupied)))
-		   
-		   (matching-nlri-record
-		    :nlri-not-found-hash-collision)
-		   (t
-		    :nlri-not-found-slot-collision))))
-	  (t   ; table-slot-value is nil
-	   :nlri-not-found-empty-slot))))
+    (cond (table-slot-value                           
+	   (let ((matching-rib-adj-entry (find nlri                                         ; search for nlri in list of rib-adj-entries
+					       table-slot-value                             ; (equality test ignores car so NLRI equal to NLRI-WITHDRAWL)
+					       :key #'RIB-ADJ-ENTRY-get-nlri
+					       :test #'NLRI/NLRI-WITHDRAWL-equal))) 
+	     (cond (matching-rib-adj-entry                                                  ; if found
+		    (cond  ((= (length table-slot-value) 1)                                 ;  if is sole entry in the hash table slot
+			    (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)   
+				  nil)                                                      ;   set has table slot to nil
+			    (decf (RIB-ADJ-get-entries-count rib-adj))                      ;   decrement entries count
+			    (incf (RIB-ADJ-get-empty-slot-count rib-adj))                   ;   increment empty slot count
+			    matching-rib-adj-entry)                                         ;   return deleted rib-adj-entry
+			   (t                                                               ;  otherwise, 
+			    (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)   
+				  (remove-if #'(lambda (x) (eq x matching-rib-adj-entry))
+					     table-slot-value))                             ;   remove entry from list
+			    (decf (RIB-ADJ-get-entries-count rib-adj))                      ;   decrement entry count
+			    matching-rib-adj-entry)))                                       ;   return deleted rib-adj-entry
+		   (t                                                                       ; otherwise, entry not found
+		    nil)))))))                                                              ;  return nil.
 
 (defun RIB-ADJ-collect-entries (rib-adj &key (test-fn #'identity))
   "Iterates over entire RIB-ADJ table and collects rib-adj-entry objects for which TEST-FN returns true"
@@ -166,11 +191,12 @@ Returns three values
 		       do (push rib-adj-entry rtn-rib-adj-entries)))
     rtn-rib-adj-entries))
 
+;; TODO. collecting and sending of announce/withdrawls needs to be changed from per entry to processing batch. currently this function has to put single nlri in list
 (defun RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (4-octet-asn-flag is-announcement rib-adj-entry)  
   (BGP-MESSAGE-make (BGP-UPDATE-make-new 4-octet-asn-flag
 					 (if is-announcement
 					     nil
-					     (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
+					     (list (RIB-ADJ-ENTRY-get-nlri rib-adj-entry)))
 					 (RIB-ADJ-ENTRY-get-pa-list rib-adj-entry)
 					 (if is-announcement
 					     (list (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))

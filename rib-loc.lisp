@@ -102,7 +102,7 @@ slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), so
 
 (defun RIB-LOC-find-rib-entry-table (rib-loc nlri)
   "Returns RIB-ENTRY-TABLE object if it exists in RIB-LOC matching passed NLRI. Otherwise, returns NIL."
-  (let* ((table-index (logand (sxhash nlri)                       
+  (let* ((table-index (logand (NLRI-zhash 0 nlri)                       
 			      (RIB-LOC-get-table-mask rib-loc)))
 	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
 				  table-index)))
@@ -111,6 +111,16 @@ slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), so
 	  :key #'RIB-ENTRY-TABLE-get-nlri
 	  :test #'equal)))
 
+(defun RIB-LOC-find-rib-entry (rib-loc peer-id rib-adj-entry)
+  "Returns RIB-ENTRY object from RIB-LOC table if it matches PEER-ID and RIB-ADJ-ENTRY"
+  (let ((rib-entry-table (RIB-LOC-find-rib-entry-table rib-loc                            ; find if RIB-ENTRY-TABLE exists for this NLRI
+						       (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))))
+    (if rib-entry-table
+	(find peer-id
+	      (RIB-ENTRY-TABLE-get-entries rib-entry-table)
+	      :key #'RIB-ENTRY-get-peer-id
+	      :test #'eq)
+	nil)))
   
 (defun RIB-LOC-add-entry (rib-loc rib-entry)
   "Adds passed RIB-ENTRY object to the hash table RIB-LOC. RIB-ENTRY is added to RIB-LOC if the object is not already present in the table.
@@ -122,7 +132,7 @@ Returns two values
   
   (let* ((rib-adj-entry (RIB-ENTRY-get-rib-adj-entry rib-entry))
 	 (nlri (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
-	 (table-index (logand (sxhash nlri)
+	 (table-index (logand (NLRI-zhash 0 nlri)
 			      (RIB-LOC-get-table-mask rib-loc)))           
 	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
 				  table-index)))
@@ -153,7 +163,7 @@ Returns two values
 			      (svref (RIB-LOC-get-rib-loc-table rib-loc)
 				     table-index)))))))))
 
-(defun RIB-LOC-update-collect-entries (rib-loc &key (test-fn #'identity) (update-fn nil) (collect t))
+(defun RIB-LOC-update-collect-entries (rib-loc &key (test-fn #'identity) (update-fn nil) (collect? t))
   "Iterates over entire RIB-LOC table and collects rib-entry objects for which TEST-FN returns true (also optionally updates each entry object)
 Each rib-entry in the table '(funcall TEST-FN rib-entry) is applies. If returns true,
 '(funcall UPDATE-FN rib-entry) if UPDATE-FN is non-nil, and the rib-entry collected in a returned list if COLLECT is true.
@@ -169,5 +179,18 @@ Examples:
 			      when (funcall test-fn rib-entry)
 				do (progn
 				     (if update-fn (funcall update-fn rib-entry))
-				     (if collect (push rib-entry rtn-rib-entries))))))
+				     (if collect? (push rib-entry rtn-rib-entries))))))
     rtn-rib-entries))
+
+(defun RIB-LOC-delete-collect-entries (rib-loc &key (test-fn #'RIB-ENTRY-new-withdrawl-flag-setp) (collect? t))
+  "Iterates over entire RIB-LOC table and deletes each rib-entry object for which TEST-FN returns true. Also collects/returns deleted entries if COLLECT? is true"
+  ;; first pass across table collects entries
+  (let ((rtn-entries nil))
+    (when collect?
+     (loop for slot across (RIB-LOC-get-rib-loc-table rib-loc)
+	  do (loop for rib-entry-table in slot
+		    do (loop for rib-entry in (RIB-ENTRY-TABLE-get-entries rib-entry-table)
+			         when (funcall test-fn rib-entry)
+				   do (push rib-entry rtn-entries)))))
+    rtn-entries))
+			

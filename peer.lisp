@@ -167,13 +167,24 @@
    ;; sent from router.lisp: (list 'ANNOUNCE-RIB-LOC->RIB-ADJ rib-adj-entries)
    (ANNOUNCE-RIB-LOC->RIB-ADJ
     (let ((rib-adj-entries (MSG-get-arg1 %message)))
-      ;;(queue-send netiotx-queue (MSG-make 'TEST-MSG-OUT rib-adj-entries))
       (dolist (rib-adj-entry rib-adj-entries)
 	(RIB-ADJ-add-entry RIB-Adj-out rib-adj-entry)
 	(QUEUE-send-message netiotx-queue (MSG-make 'SEND
 						    (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
 										       t
 										       rib-adj-entry))))))
+   (WITHDRWAL-RIB-LOC->RIB-ADJ
+    (let ((rib-adj-entries (MSG-get-arg1 %message)))
+      (dolist (rib-adj-entry rib-adj-entries)
+	(let ((removed-entry (RIB-ADJ-remove-entry RIB-Adj-out rib-adj-entry)))
+	  (if removed-entry
+	      (QUEUE-send-message netiotx-queue (MSG-make 'SEND
+							  (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
+										       nil
+										       rib-adj-entry))))))))
+							  
+	
+   
    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; BGP FSM START
@@ -1572,10 +1583,17 @@
 		   (let ((sbgp-update (MSG-get-arg1 %message)))
 		     ;; (format t "~%UPDATEMSG ~S~%" sbgp-update)
 		     (when RIB-Adj-in
+
 		       (let ((rib-adj-entry-list
-			       (loop for nlri-elem in (SBGP-UPDATE-get-nlri-list sbgp-update)
+			       (loop for nlri-withdrawl in (SBGP-UPDATE-get-nlri-withdrawl-list sbgp-update)
+				     collect (RIB-ADJ-remove-nlri RIB-Adj-in nlri-withdrawl))))
+			 (when rib-adj-entry-list
+			   (QUEUE-send-message %control-queue (MSG-make 'WITHDRAWL-RIB-ADJ->RIB-LOC %this-thread-name rib-adj-entry-list))))
+
+		       (let ((rib-adj-entry-list
+			       (loop for nlri in (SBGP-UPDATE-get-nlri-list sbgp-update)
 				     collect (RIB-ADJ-add-entry RIB-Adj-in
-								(RIB-ADJ-entry-make nlri-elem
+								(RIB-ADJ-entry-make nlri
 										    (SBGP-UPDATE-get-path-attrib-list sbgp-update))))))
 			 (when rib-adj-entry-list
 			   (QUEUE-send-message %control-queue (MSG-make 'ANNOUNCE-RIB-ADJ->RIB-LOC %this-thread-name rib-adj-entry-list))))))
