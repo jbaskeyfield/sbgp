@@ -192,5 +192,14 @@ Examples:
 		    do (loop for rib-entry in (RIB-ENTRY-TABLE-get-entries rib-entry-table)
 			         when (funcall test-fn rib-entry)
 				   do (push rib-entry rtn-entries)))))
+    (loop for slot across (RIB-LOC-get-rib-loc-table rib-loc)
+	  do (loop for rib-entry-table in slot
+		   do (multiple-value-bind (updated-rib-entry-table remove-count)
+			  (remove-if! test-fn (RIB-ENTRY-TABLE-get-entries rib-entry-table))
+			(when (> remove-count 0)
+			  (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
+				updated-rib-entry-table)
+			  (decf (RIB-LOC-get-entry-count rib-loc)
+				remove-count)))))
     rtn-entries))
 			

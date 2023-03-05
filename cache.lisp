@@ -32,10 +32,9 @@
     cache))
 
 (defun CACHE-valid1-p (cache)
-  (and (typep cache '(vector * 12))
-       (eq 'CACHE (svref cache 0))))
+  (and (eq 'CACHE (svref cache 0))))
 
-(deftype CACHE () '(and (vector) (satisfies CACHE-valid1-p)))
+(deftype CACHE () '(and (vector * 12) (satisfies CACHE-valid1-p)))
 (defun CACHE-typep (obj) (typep obj 'CACHE))
 
 (defun CACHE-switch-on (cache)

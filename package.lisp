@@ -96,6 +96,8 @@
 (load "t-threads.lisp")
 
 (load "sbgp-update.lisp")                  ;; SBGP-UPDATE
+
+(load "list-utils.lisp")                   ;; remove-if!, remove-sublist-elements-if!
 (load "rib-adj.lisp")                      ;; RIB-ADJ-ENTRY, RIB-ADJ
 (load "rib-loc.lisp")                      ;; RIB-ENTRY, RIB-ENTRY-TABLE, RIB-LOC
 
