@@ -170,27 +170,44 @@
 
    ;; sent from router.lisp: (list 'ANNOUNCE-RIB-LOC->RIB-ADJ rib-adj-entries)
    (ANNOUNCE-RIB-LOC->RIB-ADJ
-    (let ((rib-adj-entries (MSG-get-arg1 %message)))
+
+    (let* ((rib-entries (MSG-get-arg1 %message))
+	   (rib-adj-entries (loop for rib-entry in rib-entries
+				  when (not (eq %this-thread-name                     ;; TODO rib-loc -> rib-adj filter/update function
+						(RIB-ENTRY-get-peer-id rib-entry)))
+				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
+
       (dolist (rib-adj-entry rib-adj-entries)
 	(RIB-ADJ-add-entry RIB-Adj-out rib-adj-entry)
-	(QUEUE-send-message netiotx-queue (MSG-make 'SEND
-						    (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
-										       t
-   										       rib-adj-entry))))))
+	(QUEUE-send-message netiotx-queue
+			    (MSG-make 'SEND
+				      (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
+									 t
+									 rib-adj-entry))))))
+   
+   ;; sent from router.lisp: (list 'WITHDRAWL-RIB-LOC->RIB-ADJ rib-adj-entries)
    (WITHDRAWL-RIB-LOC->RIB-ADJ
-    (let ((rib-adj-entries (MSG-get-arg1 %message)))
+    
+    (let* ((rib-entries (MSG-get-arg1 %message))
+	   (rib-adj-entries (loop for rib-entry in rib-entries                       
+				  when (not (eq %this-thread-name                     ;; TODO rib-loc -> rib-adj filter/update function
+						(RIB-ENTRY-get-peer-id rib-entry)))
+				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
+    
       (dolist (rib-adj-entry rib-adj-entries)
 	(let ((removed-entry (RIB-ADJ-remove-entry RIB-Adj-out rib-adj-entry)))
 	  (if removed-entry
-	      (QUEUE-send-message netiotx-queue (MSG-make 'SEND
-							  (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
-										       nil
-										       rib-adj-entry))))))))
-   (PEER-TIMERS-rib-adj-scan-Timer-Expires
+	      (QUEUE-send-message netiotx-queue
+				  (MSG-make 'SEND
+					    (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
+									       nil
+									       rib-adj-entry))))))))
 
-    ;; restart rib-adj-scan-Timer
+   (PEER-TIMERS-rib-adj-scan-Timer-Expires
+   ;; restart rib-adj-scan-Timer
    (PEER-TIMERS-start-rib-adj-scan-Timer peer-timers %this-thread-name))
 
+   
    (Event-1-ManualStart
     (when *debug-fsm-events* (format *debug-fsm-events* "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
     (case FSM-state
