@@ -16,8 +16,9 @@
   (case event
     ;; ADMINISTRATIVE EVENTS
     (Event-1-ManualStart
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
-       (IDLE
+       (IDLE	
 	(cond ((and RIB-Adj-in RIB-Adj-out router-config peer-config
 		    (ROUTER-CONFIG-get-router-id router-config)         
 		    (ROUTER-CONFIG-get-local-asn router-config)         
@@ -45,6 +46,7 @@
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED) 'IGNORED)))
     
     (Event-2-ManualStop
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED)
@@ -87,6 +89,7 @@
     
     ;; TIMER-EVENTS
     (Event-9-ConnectRetryTimer-Expires
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        (CONNECT
@@ -145,6 +148,7 @@
 	(setf FSM-state 'IDLE))))
     
     (Event-10-HoldTimer-Expires
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED)
@@ -183,6 +187,7 @@
 	(setf FSM-state 'IDLE))))
     
     (Event-11-KeepaliveTimer-Expires
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT)
@@ -231,6 +236,7 @@
 	)))
     
     (Event-12-DelayOpenTimer-Expires
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE)
@@ -288,6 +294,7 @@
 	(setf FSM-state 'IDLE))))
     
     (Event-13-IdleHoldTimer-Expires
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'PREVENT-PEER-OSCILLATIONS) ;; TODO 
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED)
@@ -327,6 +334,7 @@
 
     ;; TCP CONNECTION-BASED EVENTS
     (Event-17-TcpConnectionConfirmed
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE)
@@ -374,6 +382,7 @@
        (ESTABLISHED 'CONNECTION-COLLISION-PROCESSING)))
     
     (Event-18-TcpConnectionFails
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        (CONNECT
@@ -479,6 +488,7 @@
 	(setf FSM-state 'IDLE))))
     
     (Event-19-BGPOpen
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE)
@@ -619,30 +629,23 @@
 	(setf FSM-state 'IDLE))))
     
     (Event-20-BGPOpen-with-DelayOpenTimer-running
-     (case FSM-state
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
+     (case FSM-State
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE)
 	;; stops the ConnectRetryTimer (if running) and sets the ConnectRetryTimer to zero,
-	(FSM-TIMERS-stop-ConnectRetryTimer FSM-timers)
-	(when debug-fsm-timers (format debug-fsm-timers "~&~S FSM-TIMERS Stopped ConnectRetryTimer~%" %this-thread-name))
 
         ;; completes the BGP initialization,
 
         ;; stops and clears the DelayOpenTimer (sets the value to zero),
-	(FSM-TIMERS-stop-DelayOpenTimer FSM-timers)
-	(when debug-fsm-timers (format debug-fsm-timers "~&~S FSM-TIMERS Stopped DelayOpenTimer~%" %this-thread-name))
-	(QUEUE-send-message netiorx-queue (MSG-make 'SET 'DELAY-OPEN-RUNNING-FLAG nil))
 
         ;; sends an OPEN message,
 
         ;; sends a KEEPALIVE message,
-	(QUEUE-send-message netiotx-queue (MSG-make 'SEND-IMMEDIATE (BGP-MESSAGE-make (BGP-KEEPALIVE-make))))
-	
+
         ;; if the HoldTimer initial value is non-zero,
 
-	;; starts the KeepaliveTimer with the initial value and
-	(FSM-TIMERS-start-KeepaliveTimer FSM-timers)
-	(when debug-fsm-timers (format debug-fsm-timers "~&~S FSM-TIMERS Started KeepaliveTimer~%" %this-thread-name))
+            ;; starts the KeepaliveTimer with the initial value and
 
             ;; resets the HoldTimer to the negotiated value,
 
@@ -653,8 +656,6 @@
             ;; resets the HoldTimer value to zero,
 
         ;; and changes its state to OpenConfirm.
-	(when debug-fsm-state (format debug-fsm-state "~&~S FSM-STATE State change: ~S -> OPENCONFIRM~%" %this-thread-name FSM-state))
-	(setf FSM-state 'OPENCONFIRM)
 
         ;; If the value of the autonomous system field is the same as local Autonomous System number, set the connection status to an internal connection; otherwise it will be "external".
 	)
@@ -662,27 +663,22 @@
 	;; sends the NOTIFICATION with the Error Code Finite State Machine Error,
 
 	;; (ESTABLISHED) deletes all routes associated with this connection,
-	(when (eq FSM-state 'ESTABLISHED)
-	  )
 
         ;; sets the ConnectRetryTimer to zero,
-	(FSM-TIMERS-stop-ConnectRetryTimer FSM-timers)
-	(when debug-fsm-timers (format debug-fsm-timers "~&~S FSM-TIMERS Stopped ConnectRetryTimer~%" %this-thread-name))
 
         ;; releases all BGP resources,
 
         ;; drops the TCP connection,
 
         ;; increments the ConnectRetryCounter by 1,
-	(incf (FSM-ATTRIB-get-ConnectRetryCounter FSM-attrib))
 	
 	;; (optionally) performs peer oscillation damping if the DampPeerOscillations attribute is set to TRUE, and
 
         ;; changes its state to Idle.
-	(when debug-fsm-state (format debug-fsm-state "~&~S FSM-STATE State change: ~S -> IDLE~%" %this-thread-name FSM-state))
-	(setf FSM-state 'IDLE))))
+	)))
     
     ((Event-21-BGPHeaderErr Event-22-BGPOpenMsgErr)
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED)
@@ -719,6 +715,7 @@
 	(setf FSM-state 'IDLE))))
 
     (Event-24-NotifMsgVerErr
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        
@@ -782,6 +779,7 @@
 	(setf FSM-state 'IDLE))))
     
     (Event-25-NotifMsg
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED)
@@ -814,6 +812,7 @@
 	(setf FSM-state 'IDLE))))
 
     (Event-26-KeepAliveMsg
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT)
@@ -862,6 +861,7 @@
 	)))
     
     (Event-27-UpdateMsg
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM)
@@ -923,6 +923,7 @@
 	)))
     
     (Event-28-UpdateMsgErr
+     (when debug-fsm-events (format debug-fsm-events "~&~S FSM-EVENTS State: ~S Event: ~S~%" %this-thread-name fsm-state (MSG-get-command %message)))
      (case FSM-state
        (IDLE 'IGNORED)
        ((CONNECT ACTIVE OPENSENT OPENCONFIRM ESTABLISHED)
