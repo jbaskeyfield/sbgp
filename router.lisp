@@ -15,14 +15,22 @@
    (*nlri-cache* nil)
    
    (router-config nil)
-   (peer-configs nil))  ;; plist of <thread-name> PEER-CONFIG
+   (peer-configs nil)   ;; plist of <thread-name> PEER-CONFIG
+   (router-timers (ROUTER-TIMERS-make-default))
+   (*debug-router-timers* *debug-router-timers*))
 
   ;;; create TCPSERVER thread
   :thread-entry-block
   ((setf tcpserver-thread (THREAD-make 'TCPSERVER %this-thread-name #'TCPSERVER-thread-loop))
    (push tcpserver-thread %child-threads)
    (setf (getf %all-queues 'TCPSERVER)
-	 (THREAD-get-control-queue tcpserver-thread)))
+	 (THREAD-get-control-queue tcpserver-thread))
+   
+   (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
+
+   :loop-entry-block
+   ;; check if any timers have been triggered. ROUTER-TIMERS-poll will enqueue events on %timers-queue
+   ((ROUTER-TIMERS-poll ROUTER-timers %timers-queue %this-thread-name))
   
   :message-case-block
   ;; (case (MSG-get-command %message)
@@ -93,24 +101,10 @@
 						 rib-adj-entry)))
 	  (if rib-entry
 	      (RIB-ENTRY-set-new-withdrawl-flag rib-entry))))))
-      
-   (PRINT-ENV2
-    (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%RIB-Loc-flagst: ~S~%router-config: ~S~%peer-configs: ~S~%"
-	    %this-thread-name
-	    tcpserver-thread
-	    peer-threads
-	    RIB-Loc
-	    RIB-Loc-flags
-	    router-config
-	    peer-configs)))
 
-  :loop-end-block
-  (;; process updates/withdrwals to RIB-LOCs
-
+   (ROUTER-TIMERS-rib-loc-scan-Timer-Expires
+   ;; process updates/withdrwals to RIB-LOCs
    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-announcement+))
-
-     (format t "~&ENTERING LOOP-END-BLOCK process announcements~%")
-     
      (let ((new-announcements (RIB-LOC-update-collect-entries rib-loc
 							      :test-fn #'RIB-ENTRY-new-announcement-flag-setp
 							      :update-fn #'RIB-ENTRY-clear-new-announcement-flag
@@ -143,9 +137,24 @@
 						  new-withdrawls))))
 		  (when rib-adj-entries
 		    (THREAD-send-message peer-thread
-					 (MSG-make 'WITHDRWAL-RIB-LOC->RIB-ADJ rib-adj-entries))))))
+					 (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ rib-adj-entries))))))
      
      ; clear new-withdrawl-flag
      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-withdrawl+
-					        rib-loc-flags)))
-   ))
+				   rib-loc-flags)))
+
+   ;; restart rib-loc-scan-timer
+   (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
+      
+   (PRINT-ENV2
+    (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%RIB-Loc-flagst: ~S~%router-config: ~S~%peer-configs: ~S~%"
+	    %this-thread-name
+	    tcpserver-thread
+	    peer-threads
+	    RIB-Loc
+	    RIB-Loc-flags
+	    router-config
+	    peer-configs)))
+
+  :loop-end-block
+  ())

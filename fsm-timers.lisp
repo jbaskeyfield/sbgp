@@ -16,10 +16,9 @@
 (defmacro FSM-TIMERS-get-IdleHoldTime (obj)          "-> Time (ticks)"         `(svref ,obj 10))
 (defmacro FSM-TIMERS-get-HoldTime-LargeValue (obj)   "-> Time (ticks)"         `(svref ,obj 11))
 (defmacro FSM-TIMERS-get-LastPollingTime (obj)       "-> Clock value (ticks)"  `(svref ,obj 12))
-(defmacro FSM-TIMERS-get-LastDebugLogTime (obj)      "-> Clock value (ticks)"  `(svref ,obj 13))
 
 (defun FSM-TIMERS-make-default ()
-  (let ((fsm-timers (make-array 14 :initial-element 0)))
+  (let ((fsm-timers (make-array 13 :initial-element 0)))
     (setf (FSM-TIMERS-get-name fsm-timers) 'FSM-TIMERS)
     (setf (FSM-TIMERS-get-ConnectRetryTime fsm-timers) (* 120 internal-time-units-per-second))
     (setf (FSM-TIMERS-get-HoldTime fsm-timers) (* 90 internal-time-units-per-second))
@@ -44,128 +43,110 @@
 (defun FSM-TIMERS-IdleHoldTimer-is-running-p (obj)
   (not (= 0 (FSM-TIMERS-get-IdleHoldTimer obj))))
 
-(defun FSM-TIMERS-start-ConnectRetryTimer (obj)
+(defun FSM-TIMERS-start-ConnectRetryTimer (obj thread-name)
   (unless (= (FSM-TIMERS-get-ConnectRetryTime obj) 0)
     (setf (FSM-TIMERS-get-ConnectRetryTimer obj)
-	  (+ (FSM-TIMERS-get-ConnectRetryTime obj) (get-internal-real-time)))))
+	  (+ (FSM-TIMERS-get-ConnectRetryTime obj) (get-internal-real-time)))
+     (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Started ConnectRetryTimer~%" thread-name))))
 
-(defun FSM-TIMERS-stop-ConnectRetryTimer (obj)
-  (setf (FSM-TIMERS-get-ConnectRetryTimer obj) 0))
+(defun FSM-TIMERS-stop-ConnectRetryTimer (obj thread-name)
+  (setf (FSM-TIMERS-get-ConnectRetryTimer obj) 0)
+  (when *debug-fsm-timers*
+    (format *debug-fsm-timers* "~&~S FSM-TIMERS Stopped ConnectRetryTimer~%" thread-name)))
 
-(defun FSM-TIMERS-start-HoldTimer (obj)
+(defun FSM-TIMERS-start-HoldTimer (obj thread-name)
   (unless (= (FSM-TIMERS-get-HoldTime obj) 0)
     (setf (FSM-TIMERS-get-HoldTimer obj) (+ (FSM-TIMERS-get-HoldTime obj)
-					    (get-internal-real-time)))))
+					    (get-internal-real-time)))
+    (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Started HoldTimer~%" thread-name))))
 
-(defun FSM-TIMERS-start-HoldTimer-LargeValue (obj)
+(defun FSM-TIMERS-start-HoldTimer-LargeValue (obj thread-name)
   (unless (= (FSM-TIMERS-get-HoldTime-LargeValue obj) 0)
     (setf (FSM-TIMERS-get-HoldTimer obj)
-	  (+ (FSM-TIMERS-get-HoldTime-LargeValue obj) (get-internal-real-time)))))
+	  (+ (FSM-TIMERS-get-HoldTime-LargeValue obj) (get-internal-real-time)))
+    (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Started HoldTimer (LargeValue)~%" thread-name))))
 
-(defun FSM-TIMERS-stop-HoldTimer (obj)
-  (setf (FSM-TIMERS-get-HoldTimer obj) 0))
+(defun FSM-TIMERS-stop-HoldTimer (obj thread-name)
+  (setf (FSM-TIMERS-get-HoldTimer obj) 0)
+  (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Stopped HoldTimer~%" thread-name)))
 
 ;; Each time the local system sends a KEEPALIVE or UPDATE message, it restarts its KeepaliveTimer, unless the negotiated HoldTime value is zero.
-(defun FSM-TIMERS-start-KeepaliveTimer (obj)
+(defun FSM-TIMERS-start-KeepaliveTimer (obj thread-name)
   (unless (or (= (FSM-TIMERS-get-HoldTime obj) 0)
 	      (= (FSM-TIMERS-get-KeepaliveTime obj) 0))
     (setf (FSM-TIMERS-get-KeepaliveTimer obj)
-	  (+ (FSM-TIMERS-get-KeepaliveTime obj) (get-internal-real-time)))))
+	  (+ (FSM-TIMERS-get-KeepaliveTime obj) (get-internal-real-time)))
+    (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Started KeepaliveTimer~%" thread-name))))
 
-(defun FSM-TIMERS-stop-KeepaliveTimer (obj)
-  (setf (FSM-TIMERS-get-KeepaliveTimer obj) 0))
+(defun FSM-TIMERS-stop-KeepaliveTimer (obj thread-name)
+  (setf (FSM-TIMERS-get-KeepaliveTimer obj) 0)
+  (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Stopped KeepaliveTimer~%" thread-name)))
 
-(defun FSM-TIMERS-start-DelayOpenTimer (obj)
+(defun FSM-TIMERS-start-DelayOpenTimer (obj thread-name)
   (unless (= (FSM-TIMERS-get-DelayOpenTime obj) 0)
     (setf (FSM-TIMERS-get-DelayOpenTimer obj)
-	  (+ (FSM-TIMERS-get-DelayOpenTime obj) (get-internal-real-time)))))
+	  (+ (FSM-TIMERS-get-DelayOpenTime obj) (get-internal-real-time)))
+    (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Started DelayOpenTimer~%" thread-name))))
 
-(defun FSM-TIMERS-stop-DelayOpenTimer (obj)
-  (setf (FSM-TIMERS-get-DelayOpenTimer obj) 0))
+(defun FSM-TIMERS-stop-DelayOpenTimer (obj thread-name)
+  (setf (FSM-TIMERS-get-DelayOpenTimer obj) 0)
+  (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Stopped DelayOpenTimer~%" thread-name)))
 
-(defun FSM-TIMERS-start-IdleHoldTimer (obj)
+(defun FSM-TIMERS-start-IdleHoldTimer (obj thread-name)
   (unless (= (FSM-TIMERS-get-IdleHoldTime obj) 0)
     (setf (FSM-TIMERS-get-IdleHoldTimer obj)
-	  (+ (FSM-TIMERS-get-IdleHoldTime obj) (get-internal-real-time)))))
+	  (+ (FSM-TIMERS-get-IdleHoldTime obj) (get-internal-real-time)))
+    (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Started IdleHoldTimer~%" thread-name))))
 
-(defun FSM-TIMERS-stop-IdleHoldTimer (obj)
-  (setf (FSM-TIMERS-get-IdleHoldTimer obj) 0))
+(defun FSM-TIMERS-stop-IdleHoldTimer (obj thread-name)
+  (setf (FSM-TIMERS-get-IdleHoldTimer obj) 0)
+  (when *debug-fsm-timers*
+      (format *debug-fsm-timers* "~&~S FSM-TIMERS Stopped IdleHoldTimer~%" thread-name)))
 
-(defun FSM-TIMERS-poll (fsm-timers timers-queue this-thread-name debug-stream-out)
+(defun FSM-TIMERS-poll (fsm-timers timers-queue thread-name)
   (let ((time-now (get-internal-real-time)))
-    (when (and debug-stream-out
-	       (> (- time-now (FSM-TIMERS-get-LastDebugLogTime fsm-timers))
-		  (* 3 internal-time-units-per-second)))                              ;; debug log every 3 seconds 
-      (setf (FSM-TIMERS-get-LastDebugLogTime fsm-timers) (get-internal-real-time))
-      (format debug-stream-out "~&~S FSM-TIMERS [Timer/Time] ConnectRetryTimer[~D/~D] HoldTimer[~D/~D] KeepaliveTimer[~D/~D] DelayOpenTimer[~D/~D] IdleHoldTimer[~D/~D]~%"
-	      this-thread-name
-	      (if (FSM-TIMERS-ConnectRetryTimer-is-running-p fsm-timers)
-		  (ceiling (/ (- (FSM-TIMERS-get-ConnectRetryTimer fsm-timers) time-now)
-			      internal-time-units-per-second))
-		  0)
-	      (ceiling (/ (FSM-TIMERS-get-ConnectRetryTime fsm-timers)
-			  internal-time-units-per-second))
-
-	      (if (FSM-TIMERS-HoldTimer-is-running-p fsm-timers)
-		  (ceiling (/ (- (FSM-TIMERS-get-HoldTimer fsm-timers) time-now)
-			      internal-time-units-per-second))
-		  0)
-	      (ceiling (/ (FSM-TIMERS-get-HoldTime fsm-timers)
-			  internal-time-units-per-second))
-
-	      (if (FSM-TIMERS-KeepaliveTimer-is-running-p fsm-timers)
-		  (ceiling (/ (- (FSM-TIMERS-get-KeepaliveTimer fsm-timers) time-now)
-			      internal-time-units-per-second))
-		  0)
-	      (ceiling (/ (FSM-TIMERS-get-KeepaliveTime fsm-timers)
-			  internal-time-units-per-second))       
-
-	      (if (FSM-TIMERS-DelayOpenTimer-is-running-p fsm-timers)
-		  (ceiling (/ (- (FSM-TIMERS-get-DelayOpenTimer fsm-timers) time-now)
-			      internal-time-units-per-second))
-		  0)
-	      (ceiling (/ (FSM-TIMERS-get-DelayOpenTime fsm-timers)
-			  internal-time-units-per-second))       
-
-	      (if (FSM-TIMERS-IdleHoldTimer-is-running-p fsm-timers)
-		  (ceiling (/ (- (FSM-TIMERS-get-IdleHoldTimer fsm-timers) time-now)
-			      internal-time-units-per-second))
-		  0)
-	      (ceiling (/ (FSM-TIMERS-get-IdleHoldTime fsm-timers)
-			  internal-time-units-per-second))))
     
     (when (and (FSM-TIMERS-ConnectRetryTimer-is-running-p fsm-timers)
 	       (< (FSM-TIMERS-get-ConnectRetryTimer fsm-timers) time-now))
-      (when debug-stream-out
-	(format debug-stream-out "~&~S FSM-TIMERS Event-9-ConnectRetryTimer-Expires~%" this-thread-name))
-      (FSM-TIMERS-stop-ConnectRetryTimer fsm-timers)
+      (when *debug-fsm-timers*
+	(format *debug-fsm-timers* "~&~S FSM-TIMERS Event-9-ConnectRetryTimer-Expires~%" thread-name))
+      (FSM-TIMERS-stop-ConnectRetryTimer fsm-timers thread-name)
       (QUEUE-send timers-queue (MSG-make 'Event-9-ConnectRetryTimer-Expires)))
     
     (when (and (FSM-TIMERS-HoldTimer-is-running-p fsm-timers)
 	       (< (FSM-TIMERS-get-HoldTimer fsm-timers) time-now))
-      (when debug-stream-out
-	(format debug-stream-out "~&~S FSM-TIMERS Event-10-HoldTimer-Expires~%" this-thread-name))
-      (FSM-TIMERS-stop-HoldTimer fsm-timers)
+      (when *debug-fsm-timers*
+	(format *debug-fsm-timers* "~&~S FSM-TIMERS Event-10-HoldTimer-Expires~%" thread-name))
+      (FSM-TIMERS-stop-HoldTimer fsm-timers thread-name)
       (QUEUE-send timers-queue (MSG-make 'Event-10-HoldTimer-Expires)))
     
     (when (and (FSM-TIMERS-KeepaliveTimer-is-running-p fsm-timers)
 	       (< (FSM-TIMERS-get-KeepaliveTimer fsm-timers) time-now))
-      (when debug-stream-out
-	(format debug-stream-out "~&~S FSM-TIMERS  Event-11-KeepaliveTimer-Expires~%" this-thread-name))
-      (FSM-TIMERS-stop-KeepaliveTimer fsm-timers)
+      (when *debug-fsm-timers*
+	(format *debug-fsm-timers* "~&~S FSM-TIMERS Event-11-KeepaliveTimer-Expires~%" thread-name))
+      (FSM-TIMERS-stop-KeepaliveTimer fsm-timers thread-name)
       (QUEUE-send timers-queue (MSG-make 'Event-11-KeepaliveTimer-Expires)))
     
     (when (and (FSM-TIMERS-DelayOpenTimer-is-running-p fsm-timers)
 	       (< (FSM-TIMERS-get-DelayOpenTimer fsm-timers) time-now))
-      (when debug-stream-out
-	(format debug-stream-out "~&~S FSM-TIMERS Event-12-DelayOpenTimer-Expires~%" this-thread-name))
-      (FSM-TIMERS-stop-DelayOpenTimer fsm-timers)
+      (when *debug-fsm-timers*
+	(format *debug-fsm-timers* "~&~S FSM-TIMERS Event-12-DelayOpenTimer-Expires~%" thread-name))
+      (FSM-TIMERS-stop-DelayOpenTimer fsm-timers thread-name)
       (QUEUE-send timers-queue (MSG-make 'Event-12-DelayOpenTimer-Expires)))
     
     (when (and (FSM-TIMERS-IdleHoldTimer-is-running-p fsm-timers)
 	       (< (FSM-TIMERS-get-IdleHoldTimer fsm-timers) time-now))
-      (when debug-stream-out
-	(format debug-stream-out "~&~S FSM-TIMERS Event-13-IdleHoldTimer-Expires~%" this-thread-name))
-      (FSM-TIMERS-stop-IdleHoldTimer fsm-timers)
+      (when *debug-fsm-timers*
+	(format *debug-fsm-timers* "~&~S FSM-TIMERS Event-13-IdleHoldTimer-Expires~%" thread-name))
+      (FSM-TIMERS-stop-IdleHoldTimer fsm-timers thread-name)
       (QUEUE-send timers-queue (MSG-make 'Event-13-IdleHoldTimer-Expires)))))
 

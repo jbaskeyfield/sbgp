@@ -1,5 +1,23 @@
 (in-package :sbgp)
 
+;;; DEBUG LOGGING
+;;; special variables can be set globally or per thread for per-thread debug logging
+
+;;; PEER THREAD FSM DEBUGGING
+(defparameter *debug-fsm-timers* *standard-output*)
+(defparameter *debug-fsm-state* *standard-output*)
+(defparameter *debug-fsm-events* nil)
+
+;; PEER THREAD DEBUGGING
+(defparameter *debug-peer-timers* nil)
+
+;;; ROUTER THREAD DEBUGGING
+(defparameter *debug-router-timers* nil)
+
+;;; TCPSERVER THREAD DEBUGGING
+(defparameter *debug-tcpserver-timers* *standard-output*)
+
+
 
 (defparameter *rr-polling-bucket-size* 5 "Maximum number of sequential reads from threads queue when polling list of queues")
 (defparameter *t-thread-debug-messages-flag* t)

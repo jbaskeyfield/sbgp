@@ -43,15 +43,30 @@
     (peer-addresses nil)    ; list of TCPSERVER-PEER-ADDRESS
     (active-streams nil)    ; list of TCPSERVER-ACTIVE-STREAM
     (tcp-opt-backlog 5)
-    (debug-tcp-events nil))
+    (debug-tcp-events nil)
+    
+    (tcpserver-timers (TCPSERVER-TIMERS-make-default))
+    (*debug-tcpserver-timers* *debug-tcpserver-timers*))
+
+  :thread-entry-block
+  ((TCPSERVER-TIMERS-start-tcp-scan-Timer tcpserver-timers %this-thread-name))
 
   :quit-cleanup-block
   ((dolist (elem listener-sockets)
      (sb-bsd-sockets:socket-close (TCPSERVER-LISTENER-get-socket elem))))
 
+  :loop-entry-block
+   ;; check if any timers have been triggered. TCPSERVER-TIMERS-poll will enqueue events on %timers-queue
+  ((TCPSERVER-TIMERS-poll tcpserver-timers %timers-queue %this-thread-name))
+  
   :message-case-block
   ;; (case (MSG-get-command %message)
-  ((PRINT-ENV2
+  ((TCPSERVER-TIMERS-tcp-scan-Timer-Expires
+    
+    ;; restart tcp-scan-timer
+    (TCPSERVER-TIMERS-start-tcp-scan-Timer tcpserver-timers %this-thread-name))
+
+   (PRINT-ENV2
     (format t "~&~S PRINT-ENV2~%listener-sockets: ~S~%peer-addresses: ~S~%active-streams: ~S~%tcp-opt-backlog: ~S~%"
 	    %this-thread-name listener-sockets peer-addresses active-streams tcp-opt-backlog))
    

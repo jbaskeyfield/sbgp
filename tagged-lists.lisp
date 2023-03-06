@@ -5,7 +5,7 @@
 (defun TL-typep (obj) (and (consp obj) (car obj) (symbolp (car obj))))
 
 ;;; Tagged vectors
-(defun TV-get-name (obj) "-> symbol" (svref obj 0))
+(defmacro TV-get-name (obj) "-> symbol" `(svref ,obj 0))
 (defun TV-typep (obj) (and (vectorp obj) (> (length obj) 0) (symbolp (svref obj 0))))
 
 ;;; WALK / FILTER TREE OF TAGGED LISTS

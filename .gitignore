@@ -19,3 +19,4 @@ testing/
 debug/
 rfcs/
 *.lisp~
+TODO.txt*
