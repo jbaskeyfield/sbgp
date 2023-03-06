@@ -102,50 +102,96 @@
 	  (if rib-entry
 	      (RIB-ENTRY-set-new-withdrawl-flag rib-entry))))))
 
+   
    (ROUTER-TIMERS-rib-loc-scan-Timer-Expires
    ;; process updates/withdrwals to RIB-LOCs
-   (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-announcement+))
-     (let ((new-announcements (RIB-LOC-update-collect-entries rib-loc
-							      :test-fn #'RIB-ENTRY-new-announcement-flag-setp
-							      :update-fn #'RIB-ENTRY-clear-new-announcement-flag
-							      :collect? t)))
+    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-announcement+))
+      (let ((new-announcements (RIB-LOC-update-collect-entries rib-loc
+							       :test-fn #'RIB-ENTRY-new-announcement-flag-setp
+							       :update-fn #'RIB-ENTRY-clear-new-announcement-flag
+							       :collect? t)))
         (loop for peer-thread in peer-threads
 	      do (let ((rib-adj-entries
 			 (map 'list #'RIB-ENTRY-get-rib-adj-entry
 			      (remove-if #'(lambda (x) (eq (THREAD-get-thread-name-symbol peer-thread)
-								    (RIB-ENTRY-get-peer-id x)))
-						  new-announcements))))
-		  (when rib-adj-entries
-		    (THREAD-send-message peer-thread
-					 (MSG-make 'ANNOUNCE-RIB-LOC->RIB-ADJ rib-adj-entries))))))
-     
-     ;; clear new-announcement-flag
-     (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-announcement+
-					        rib-loc-flags)))
-   
-   (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-withdrawl+))
-     ;; process withdrawls
-     (format t "~&ENTERING LOOP-END-BLOCK process withdrawls~%")
-     (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
-							   :test-fn #'RIB-ENTRY-new-withdrawl-flag-setp
-							   :collect? t)))
-       (loop for peer-thread in peer-threads
+							   (RIB-ENTRY-get-peer-id x)))
+					 new-announcements))))
+		   (when rib-adj-entries
+		     (THREAD-send-message peer-thread
+					  (MSG-make 'ANNOUNCE-RIB-LOC->RIB-ADJ rib-adj-entries))))))
+      
+      ;; clear new-announcement-flag
+      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-announcement+
+				    rib-loc-flags)))
+    
+    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-withdrawl+))
+      ;; process withdrawls
+      (format t "~&ENTERING LOOP-END-BLOCK process withdrawls~%")
+      (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
+							    :test-fn #'RIB-ENTRY-new-withdrawl-flag-setp
+							    :collect? t)))
+	(loop for peer-thread in peer-threads
 	      do (let ((rib-adj-entries
 			 (map 'list #'RIB-ENTRY-get-rib-adj-entry
 			      (remove-if #'(lambda (x) (eq (THREAD-get-thread-name-symbol peer-thread)
-								    (RIB-ENTRY-get-peer-id x)))
-						  new-withdrawls))))
-		  (when rib-adj-entries
-		    (THREAD-send-message peer-thread
-					 (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ rib-adj-entries))))))
-     
-     ; clear new-withdrawl-flag
-     (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-withdrawl+
-				   rib-loc-flags)))
-
-   ;; restart rib-loc-scan-timer
-   (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
+							   (RIB-ENTRY-get-peer-id x)))
+					 new-withdrawls))))
+		   (when rib-adj-entries
+		     (THREAD-send-message peer-thread
+					  (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ rib-adj-entries))))))
       
+					; clear new-withdrawl-flag
+      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-withdrawl+
+				    rib-loc-flags)))
+
+    ;; restart rib-loc-scan-timer
+    (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
+
+   #|
+   (ROUTER-TIMERS-rib-loc-scan-Timer-Expires
+   ;; process updates/withdrwals to RIB-LOCs
+    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-announcement+))
+      (let ((new-announcements (RIB-LOC-update-collect-entries rib-loc
+							       :test-fn #'RIB-ENTRY-new-announcement-flag-setp
+							       :update-fn #'RIB-ENTRY-clear-new-announcement-flag
+							       :collect? t)))
+        (loop for peer-thread in peer-threads
+	      do (let ((rib-adj-entries
+			 (map 'list #'RIB-ENTRY-get-rib-adj-entry
+			      (remove-if #'(lambda (x) (eq (THREAD-get-thread-name-symbol peer-thread)
+							   (RIB-ENTRY-get-peer-id x)))
+					 new-announcements))))
+		   (when rib-adj-entries
+		     (THREAD-send-message peer-thread
+					  (MSG-make 'ANNOUNCE-RIB-LOC->RIB-ADJ rib-adj-entries))))))
+      
+      ;; clear new-announcement-flag
+      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-announcement+
+				    rib-loc-flags)))
+    
+    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-withdrawl+))
+      ;; process withdrawls
+      (format t "~&ENTERING LOOP-END-BLOCK process withdrawls~%")
+      (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
+							    :test-fn #'RIB-ENTRY-new-withdrawl-flag-setp
+							    :collect? t)))
+	(loop for peer-thread in peer-threads
+	      do (let ((rib-adj-entries
+			 (map 'list #'RIB-ENTRY-get-rib-adj-entry
+			      (remove-if #'(lambda (x) (eq (THREAD-get-thread-name-symbol peer-thread)
+							   (RIB-ENTRY-get-peer-id x)))
+					 new-withdrawls))))
+		   (when rib-adj-entries
+		     (THREAD-send-message peer-thread
+					  (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ rib-adj-entries))))))
+      
+					; clear new-withdrawl-flag
+      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-withdrawl+
+				    rib-loc-flags)))
+
+    ;; restart rib-loc-scan-timer
+    (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
+     |# 
    (PRINT-ENV2
     (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%RIB-Loc-flagst: ~S~%router-config: ~S~%peer-configs: ~S~%"
 	    %this-thread-name
