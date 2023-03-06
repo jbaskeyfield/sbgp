@@ -3,14 +3,10 @@
 ;;; contains BGP FSM logic, RIB-Adj-In, RIB-Adj-Out
 ;;; control connection back to ROUTER
 ;;; child connection to NET-IO thread
-
+(defparameter +FSM-States+
+  '( IDLE  CONNECT  ACTIVE  OPENSENT  OPENCONFIRM  ESTABLISHED))
 (defparameter +FSM-Events+
-  `(
-    ;; Events-26 and 27 moved to head of list to speed up member test on entry to FSM case block
-    Event-27-UpdateMsg                                                            ; Mandatory   (NETIORX)
-    Event-26-KeepAliveMsg                                                         ; Mandatory   (NETIORX)
-    
-    ;; ADMINISTRATIVE EVENTS
+  '(;; ADMINISTRATIVE EVENTS
     Event-1-ManualStart                                                           ; Mandatory
     Event-2-ManualStop                                                            ; Mandatory
     Event-3-AutomaticStart                                                        ; Optional 
@@ -40,6 +36,8 @@
     Event-23-OpenCollisionDump                                                    ; Optional
     Event-24-NotifMsgVerErr                                                       ; Mandatory
     Event-25-NotifMsg                                                             ; Mandatory   (NETIORX)
+    Event-27-UpdateMsg                                                            ; Mandatory   (NETIORX)
+    Event-26-KeepAliveMsg                                                         ; Mandatory   (NETIORX)
     Event-28-UpdateMsgErr))                                                       ; Mandatory   TODO (NETIORX)
 
 (define-T-THREAD-LOOP-FUNCTION PEER
@@ -172,7 +170,7 @@
 	(QUEUE-send-message netiotx-queue (MSG-make 'SEND
 						    (RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (PEER-SESSION-STATE-get-4-octet-asn-flag peer-session-state)
 										       t
-										       rib-adj-entry))))))
+   										       rib-adj-entry))))))
    (WITHDRWAL-RIB-LOC->RIB-ADJ
     (let ((rib-adj-entries (MSG-get-arg1 %message)))
       (dolist (rib-adj-entry rib-adj-entries)
