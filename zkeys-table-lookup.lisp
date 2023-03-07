@@ -120,7 +120,10 @@ lowest n bits of resulting hash is used as index to cache array.
 		      (cdr l)))))
     (rec 0 octet-offset lst)))
 
+
 (defun zhash-tagged-list (specification start-offset obj)
+  "Computes zhash for flat tagged list comprising of integers only.
+Passed SPECIFICATION is list of integers describing number of bytes per integer in OBJ"
   (do ((spec specification (if (cdr spec)
 			       (cdr spec)
 			       spec))

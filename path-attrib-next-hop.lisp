@@ -10,9 +10,9 @@
 	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
 	  (zhash-integer u24 (+ 4 octet-offset) (NEXT-HOP-get-afisafi obj))
 	  (case (AFISAFI-get-afi (NEXT-HOP-get-afisafi obj))
-	    (+AFI-ipv4+ (IPV4-zhash 7 (NEXT-HOP-get-address obj)))
-	    (+AFI-ipv6+ (IPV6-zhash 7 (NEXT-HOP-get-address obj)))
-	    (t (BYTES-zhash 7 (NEXT-HOP-get-address obj))))))
+	    (+AFI-ipv4+ (IPV4-zhash (+ 7 octet-offset) (NEXT-HOP-get-address obj)))
+	    (+AFI-ipv6+ (IPV6-zhash (+ 7 octet-offset) (NEXT-HOP-get-address obj)))
+	    (t (BYTES-zhash (+ 7 octet-offset) (NEXT-HOP-get-address obj))))))
 
 (defun NEXT-HOP-make (attribute-type attribute-length afisafi address)
   (let ((obj (list 'NEXT-HOP

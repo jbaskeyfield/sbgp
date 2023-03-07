@@ -34,8 +34,9 @@
 (defun CACHE-valid1-p (cache)
   (and (eq 'CACHE (svref cache 0))))
 
-(deftype CACHE () '(and (vector * 12) (satisfies CACHE-valid1-p)))
-(defun CACHE-typep (obj) (typep obj 'CACHE))
+
+;;(deftype CACHE () '(and (vector * 12) (satisfies CACHE-valid1-p)))
+;;(defun CACHE-typep (obj) (typep obj 'CACHE))
 
 (defun CACHE-switch-on (cache)
   (setf (CACHE-get-caching-state cache) t))
@@ -157,5 +158,6 @@ Second value returned indicates the result of lookup:
 	    (CACHE-get-slot-collision-counter cache) slot-collisions-percent
 	    (CACHE-get-key-collision-counter cache) key-collisions-percent)))
 
-(set-pprint-dispatch 'CACHE #'CACHE-pprint-2  0 *sbgp-pprint-dispatch-table-2*)
-(setf (get 'CACHE 'pprint-2) #'CACHE-pprint-2)
+;;
+;;(set-pprint-dispatch 'CACHE #'CACHE-pprint-2  0 *sbgp-pprint-dispatch-table-2*)
+;;(setf (get 'CACHE 'pprint-2) #'CACHE-pprint-2)

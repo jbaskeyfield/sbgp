@@ -76,6 +76,7 @@
 (load "path-attrib-mp-reach-nlri.lisp")    ;; MP-REACH-NLRI
 (load "path-attrib-mp-unreach-nlri.lisp")  ;; MP-UNREACH-NLRI
 (load "path-attrib-large-community.lisp")  ;; LARGE-COMMUNITY
+(load "path-attrib-originator-id.lisp")    ;; ORIGINATOR-ID, CLUSTER-LIST
 (load "path-attrib2.lisp")                 ;; PATH-ATTRIB (calls above path-attrib fns.)
 
 (load "bgp-cap.lisp")                      ;; BGP-CAP, BGP-CAP-UNKNOWN, BGP-CAP-MP-EXTENSIONS, BGP-CAP-ROUTE-REFRESH, BGP-CAP-4-OCTET-ASN
