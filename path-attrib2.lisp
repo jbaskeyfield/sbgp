@@ -136,6 +136,5 @@ PATH-ATTRIB-get-io-rw-octets (obj)
 (defun PATH-ATTRIB-zhash-list (list-path-attrib)
   "Returned combined 'logxor' of all path attributes in LIST-PATH-ATTRIB"
   (do ((lst list-path-attrib (cdr lst))
-       (hash 0 (logxor hash
-		       (PATH-ATTRIB-zhash (car lst)))))
+       (hash 0 (logxor hash (PATH-ATTRIB-zhash (car lst)))))
       ((null lst) hash)))

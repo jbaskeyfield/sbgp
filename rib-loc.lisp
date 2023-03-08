@@ -98,7 +98,7 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
     ;;(format t "~&RIB-PEER: ~S~%RIB-ENTRIES-LIST: ~S~%EXISTING-ENTRY: ~S"
    ;;	    rib-peer rib-entries-list existing-entry)
     (cond (existing-entry
-	   (format t "~%RIB-ENTRY-TABLE-add :replaced-existing-entry~%")
+	   ;; (format t "~%RIB-ENTRY-TABLE-add :replaced-existing-entry~%")
 	   (values (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
 			 (cons rib-entry
 			       ;; TODO: change this to remove-if! once working
@@ -107,7 +107,7 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
 					  rib-entries-list)))
 		   :replaced-existing-entry))
 	  (t
-	   (format t "~%RIB-ENTRY-TABLE-add :added-new-entry~%")
+	   ;; (format t "~%RIB-ENTRY-TABLE-add :added-new-entry~%")
 	   (values (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
 			 (cons rib-entry rib-entries-list))
 		   :added-new-entry)))))
@@ -220,7 +220,7 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :a
 			table-index))
 	   (incf (RIB-LOC-get-entry-count rib-loc))
 	   (decf (RIB-LOC-get-empty-slot-count rib-loc))
-	   (format t "~&NEW RIB-ENTRY-TABLE ADDED TO EMPTY SLOT~%")
+	   ;; (format t "~&NEW RIB-ENTRY-TABLE ADDED TO EMPTY SLOT~%")
 	   (values rib-entry :added-new-table))
 	  (t
 	   ;; slot already occupied by list
@@ -230,11 +230,11 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :a
 						 :key #'RIB-ENTRY-TABLE-get-nlri
 						 :test #'equal)))
 	     (cond (matching-rib-entry-table
-		    (format t "~&NEW RIB-ENTRY ADDED TO EXISTING RIB-ENTRY-TABLE~%")
+		    ;;(format t "~&NEW RIB-ENTRY ADDED TO EXISTING RIB-ENTRY-TABLE~%")
 		    (RIB-ENTRY-TABLE-add matching-rib-entry-table
 					 rib-entry))
 		   (t
-		    (format t "~&NEW RIB-ENTRY-TABLE ADDED TO OCCUPIED SLOT~%")
+		    ;;(format t "~&NEW RIB-ENTRY-TABLE ADDED TO OCCUPIED SLOT~%")
 		    (values (push (RIB-ENTRY-TABLE-make nlri rib-entry)
 				  (svref (RIB-LOC-get-rib-loc-table rib-loc)
 					 table-index))

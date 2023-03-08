@@ -144,6 +144,9 @@
 		   (close value))
 	       peer-mrt-ht))))
 
+(defun mrt-rib-count (filename-in)
+  (let ((rib-table-count
+
 (defun mrt-rib-import (filename-in rib-loc &key (record-count nil) (nlri-cache nil) (set-new-announcement-flag nil) (path-attrib-cache nil) (path-attrib-list-cache nil))
   (let ((*nlri-cache* nlri-cache)
 	(*path-attrib-cache* path-attrib-cache)
@@ -151,7 +154,7 @@
 	(mrt-message-counter 0)
 	(rib-table-counter 0)
 	(rib-entry-counter 0)
-	(peer-array (make-array 32)))
+	(peer-array (make-array 1024)))
 
     (handler-case 
 	;; read mrt-peer-index-table
