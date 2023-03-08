@@ -49,8 +49,8 @@
        (let ((peer-thread-name (MSG-get-arg2 %message))
 	     (rib-peer (MSG-get-arg3 %message)))
 	 (format t "~&SETTING RIB-PEER ~S : ~S~%" peer-thread-name rib-peer)
-	 (push (cons peer-thread-name rib-peer)
-	       (RIB-LOC-get-peers rib-loc))
+	 (RIB-LOC-add-peer rib-loc rib-peer)
+;;	 (push (cons peer-thread-name rib-peer) (RIB-LOC-get-peers rib-loc))
 	 (format t "~&RIB-LOC-get-peers: ~S~%" (RIB-LOC-get-peers rib-loc))))))
    
    (GET
@@ -84,19 +84,21 @@
    
    (ANNOUNCE-RIB-ADJ->RIB-LOC
     (let ((peer-id            (MSG-get-arg1 %message))
-	  (rib-adj-entry-list (MSG-get-arg2 %message)))
+	  (rib-adj-entry-list (MSG-get-arg2 %message))
+	  (originated-time (sb-posix:time)))
 
       ;; TODO rib-adj -> rib-loc filter/update function
       
       (setf (RIB-LOC-get-flags rib-loc)
 	    (logior +RIB-ENTRY-flag-new-announcement+
 		    (RIB-LOC-get-flags rib-loc)))
-      
+
       (dolist (rib-adj-entry rib-adj-entry-list)
 	(RIB-LOC-add-entry RIB-Loc
 			   (RIB-ENTRY-make (NLRI-get-afisafi (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
-					   (cdr (assoc peer-id (RIB-LOC-get-peers RIB-Loc)))
+					   (RIB-LOC-get-rib-peer rib-loc peer-id)
 					   rib-adj-entry
+					   originated-time
 					   +RIB-ENTRY-flag-new-announcement+)))))
    
    (WITHDRAWL-RIB-ADJ->RIB-LOC

@@ -314,7 +314,7 @@ the record.
 (defmacro MRT-PEER-INDEX-TABLE-get-view-name-length (obj)  "-> u16"                             `(caddr ,obj))
 (defmacro MRT-PEER-INDEX-TABLE-get-view-name (obj)         "-> BYTES (view-name-length)"        `(cadddr ,obj))
 (defmacro MRT-PEER-INDEX-TABLE-get-peer-count (obj)        "-> u16"                             `(car (cddddr ,obj)))
-(defmacro MRT-PEER-INDEX-TABLE-get-peer-entries (obj)      "-> list of PEER-INDEX-TABLE-ENTRY"  `(car (cddddr ,obj)))
+(defmacro MRT-PEER-INDEX-TABLE-get-peer-entries (obj)      "-> list of PEER-INDEX-TABLE-ENTRY"  `(cadr (cddddr ,obj)))
 
 (defun MRT-PEER-INDEX-TABLE-io-read (port)
   (let* ((collector-bgp-id (IPV4-io-read port))      ; IPV4
@@ -383,7 +383,7 @@ the Next Hop Address Length and Next Hop Address fields.
 |#
 
 (defun MRT-RIB-ENTRY-make (peer-index originated-time attribute-length bgp-attributes)
-  (list 'RIB-ENTRY
+  (list 'MRT-RIB-ENTRY
 	peer-index                      ; u16
 	originated-time                 ; u32
 	attribute-length                ; u16
@@ -402,7 +402,7 @@ the Next Hop Address Length and Next Hop Address fields.
 	 (bgp-attributes   (PATH-ATTRIB-io-read-list attribute-length
 						     t
 						     port)))
-    (list 'RIB-ENTRY
+    (list 'MRT-RIB-ENTRY
 	  peer-index
 	  originated-time
 	  attribute-length
@@ -454,18 +454,17 @@ trailing bits is irrelevant.
 |#
 
 (defun MRT-RIB-make (af-type sequence-number nlri entry-count rib-entries)
-  (list af-type            ; symbol { MRT-RIB-IPV4-UNICAST | MRT-RIB-IPV4-MULTICAST | MRT-RIB-IPV6-UNICAST | MRT-RIB-IPV6-MULTICAST }
+  (list af-type            ; symbol { MRT-RIB-IPV4-UNICAST | MRT-RIB-IPV4-MULTICAST | MRT-RIB-IPV6-UNICAST | MRT-RIB-IPV6-MULTICAST  }
 	sequence-number    ; u32
 	nlri               ; NLRI
 	entry-count        ; u16
 	rib-entries))      ; list of MRT-RIB-ENTRY
 
-(defmacro MRT-RIB-get-name (obj)        "-> symbol"                 `(car ,obj))
-(defmacro MRT-RIB-get-af-type (obj)     "-> symbol { MRT-RIB-IPV4-UNICAST | MRT-RIB-IPV4-MULTICAST | MRT-RIB-IPV6-UNICAST | MRT-RIB-IPV6-MULTICAST }" `(cadr ,obj))
-(defmacro MRT-RIB-sequence-number (obj) "-> u32"                    `(caddr ,obj))
-(defmacro MRT-RIB-nlri (obj)            "-> NLRI"                   `(cadddr ,obj))
-(defmacro MRT-RIB-entry-count (obj)     "-> u16"                    `(car (cddddr ,obj)))
-(defmacro MRT-RIB-rib-entries (obj)     "-> list of MRT-RIB-ENTRY"  `(cadr (cddddr ,obj)))
+(defun MRT-RIB-get-af-type (obj)     "-> symbol { MRT-RIB-IPV4-UNICAST | MRT-RIB-IPV4-MULTICAST | MRT-RIB-IPV6-UNICAST | MRT-RIB-IPV6-MULTICAST  }" (car obj))
+(defun MRT-RIB-get-sequence-number (obj) "-> u32"                    (cadr obj))
+(defun MRT-RIB-get-nlri (obj)            "-> NLRI"                   (caddr obj))
+(defun MRT-RIB-get-entry-count (obj)     "-> u16"                    (cadddr obj))
+(defun MRT-RIB-get-rib-entries (obj)     "-> list of MRT-RIB-ENTRY"  (car (cddddr obj)))
 
 (defun MRT-RIB-io-read (af-type port)
   "af-type is symbol RIB-IPV4-UNICAST | RIB-IPV4-MULTICAST | RIB-IPV6-UNICAST | RIB-IPV6-MULTICAST"
@@ -478,11 +477,11 @@ trailing bits is irrelevant.
 	 (entry-count      (io-read-uNbe u16 port))
 	 (rib-entries      (loop repeat entry-count
 				 collect (MRT-RIB-ENTRY-io-read port))))
-    (list af-type
-	  sequence-number   
-	  nlri
-	  entry-count       
-	  rib-entries)))
+    (MRT-RIB-make af-type
+		  sequence-number   
+		  nlri
+		  entry-count       
+		  rib-entries)))
 
 (defun MRT-RIB-io-write (obj port)
   (destructuring-bind (sequence-number nlri entry-count rib-entries)
@@ -543,7 +542,7 @@ values SHOULD discard the remainder of the MRT record.
 	 (entry-count      (io-read-uNbe u16 port))
 	 (rib-entries      (loop repeat entry-count
 				 collect (MRT-RIB-ENTRY-io-read port))))
-    (list 'RIB-GENERIC
+    (list 'MRT-RIB-GENERIC
 	  sequence-number
 	  afi        
 	  safi       

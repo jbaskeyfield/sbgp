@@ -1008,7 +1008,8 @@
 				     (RIB-PEER-make %this-thread-name
 						    'INTERNAL
 						    (PEER-SESSION-STATE-get-peer-router-id peer-session-state)
-						    (PEER-CONFIG-get-peer-ip-address peer-config))))
+						    (PEER-CONFIG-get-peer-ip-address peer-config)
+						    (PEER-CONFIG-get-peer-asn peer-config))))
 						    
        (when *debug-fsm-state* (format *debug-fsm-state* "~&~S FSM-STATE State change: ~S -> ESTABLISHED~%" %this-thread-name FSM-state))
        (setf FSM-state 'ESTABLISHED))

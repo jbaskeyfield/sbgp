@@ -142,7 +142,7 @@
 					stream-in))
         (NLRI-make afisafi
 		   0
-		   0))))
+		   (list 0)))))
 
 (defun NLRI-io-read-list (octets afisafi stream-in)
   (labels ((recurse (bytes-read)

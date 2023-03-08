@@ -143,3 +143,85 @@
 		   (format t "~&peer ~S closing ~S~%" key value)
 		   (close value))
 	       peer-mrt-ht))))
+
+(defun mrt-rib-import (filename-in rib-loc &key (record-count nil) (nlri-cache nil) (set-new-announcement-flag nil) (path-attrib-cache nil) (path-attrib-list-cache nil))
+  (let ((*nlri-cache* nlri-cache)
+	(*path-attrib-cache* path-attrib-cache)
+	(*path-attrib-list-cache* path-attrib-list-cache)
+	(mrt-message-counter 0)
+	(rib-table-counter 0)
+	(rib-entry-counter 0)
+	(peer-array (make-array 32)))
+
+    (handler-case 
+	;; read mrt-peer-index-table
+	(let* ((stream-in (open filename-in :direction :input :element-type 'unsigned-byte))
+	       (mrt-message (MRT-MESSAGE-io-read stream-in)))
+	  (incf mrt-message-counter)
+	  (let* ((mrt-peer-index-table (tl-find-in-tree 'MRT-PEER-INDEX-TABLE mrt-message))
+		 (mrt-peer-entries (MRT-PEER-INDEX-TABLE-get-peer-entries mrt-peer-index-table)))
+	    ;; (format t "~&peer-entries:~%~S~%" mrt-peer-entries)
+	    (dolist (mrt-peer-entry mrt-peer-entries)
+	      
+	      (let ((rib-peer (RIB-PEER-make (intern (format nil "MRT-PEER-~D" (MRT-PEER-INDEX-TABLE-ENTRY-get-index-number mrt-peer-entry)))
+					     'EXTERNAL
+					     (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-bgp-id mrt-peer-entry)
+					     (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-ip-address mrt-peer-entry)
+					     (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-as mrt-peer-entry))))
+		;; (format t "~&Adding peer: ~S~%" rib-peer)
+
+	        (RIB-LOC-add-peer rib-loc rib-peer)
+		(setf (svref peer-array (MRT-PEER-INDEX-TABLE-ENTRY-get-index-number mrt-peer-entry))
+		      (RIB-LOC-get-rib-peer rib-loc
+					    (RIB-PEER-get-thread-name rib-peer)))))
+
+	    (loop for i from 0
+		  until (and record-count (>= i record-count))
+		  do (let ((mrt-message (MRT-MESSAGE-io-read stream-in)))
+		       (incf mrt-message-counter)
+		       (let* ((mrt-header (MRT-MESSAGE-get-header mrt-message))
+			      (message-type (MRT-COMMON-HEADER-get-type mrt-header))
+			      (message-subtype (MRT-COMMON-HEADER-get-subtype mrt-header)))
+			 (when (= message-type 13)  ; TABLE_DUMP_V2
+			   (case message-subtype
+			     ((2 3 4 5)  ; RIB_IPV4_UNICAST / RIB_IPV4_MULTICAST / RIB_IPV6_UNICAST / RIB_IPV6_MULTICAST
+			      (incf rib-table-counter)
+			      (let ((mrt-rib (MRT-MESSAGE-get-message mrt-message)))
+				;; (format t "~%MRT-RIB for processing:~%~S~%" mrt-rib)
+				(let ((nlri (MRT-RIB-get-nlri mrt-rib)))
+				  (dolist (mrt-rib-entry (MRT-RIB-get-rib-entries mrt-rib))
+				    (incf rib-entry-counter)
+				    (let ((peer-index (MRT-RIB-ENTRY-get-peer-index mrt-rib-entry))
+					  (originated-time (MRT-RIB-ENTRY-get-originated-time mrt-rib-entry))
+					  (bgp-attributes (MRT-RIB-ENTRY-get-bgp-attributes mrt-rib-entry)))
+
+				      (let ((new-rib-entry
+					      (RIB-ENTRY-make (NLRI-get-afisafi nlri)
+							      (svref peer-array peer-index)
+							      (RIB-ADJ-ENTRY-make nlri
+										  bgp-attributes)
+							      originated-time
+							      (if set-new-announcement-flag
+								  +RIB-ENTRY-flag-new-announcement+
+								  0))))
+					;; (format t "~%NEW RIB-ENTRY:~%~S~%"  new-rib-entry)
+					(RIB-LOC-add-entry rib-loc new-rib-entry)
+					))))))
+
+			     (6          ; RIB_GENERIC
+			      )
+			     (t
+			      nil))))))))
+      (end-of-file () (format t "~&end-of-file!~%"))
+      (sb-ext:file-does-not-exist () (format t "~&file-does-not-exist~%")))
+
+    ;;(loop for i across peer-array do (print i))
+    (format t "~&mrt-message-counter: ~S~%rib-table-counter: ~S~%rib-entry-counter: ~S~%"
+	    mrt-message-counter rib-table-counter rib-entry-counter)))
+
+  
+  
+  
+  
+
+  ;; -> populate rib-loc with rib-peers

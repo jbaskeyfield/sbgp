@@ -7,28 +7,33 @@ slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), so
 (defun RIB-PEER-get-internal-external (peer) "-> symbol [internal|external]"   (caddr peer))
 (defun RIB-PEER-get-router-id (peer)         "-> IPV4"                         (cadddr peer))
 (defun RIB-PEER-get-ip-address (peer)        "-> IPV4 | IPV6"                  (car (cddddr peer)))
+(defun RIB-PEER-get-peer-asn (peer)          "-> u32"                          (cadr (cddddr peer)))
 
-(defun RIB-PEER-make (thread-name internal-external router-id ip-address)
+
+(defun RIB-PEER-make (thread-name internal-external router-id ip-address peer-asn)
   "Link to RIB-PEER object is included in each RIB-ENTRY to indicate source and provide info for best-path selection (iBGP/eBGP, router id, ip address).
 Arguments: thread-name [symbol - name of peer thread], internal-external [symbol - 'INTERNAL|'EXTERNAL], router-id [IPV4], ip-address [IPV4|IPV6]."
   (list 'RIB-PEER
 	thread-name
 	internal-external
 	router-id
-	ip-address))
+	ip-address
+	peer-asn))
 	
 
-(defun RIB-ENTRY-get-name (entry)          "-> symbol"                    (car entry))
-(defun RIB-ENTRY-get-flags (entry)         "-> u56"                       (cadr entry))
-(defmacro RIB-ENTRY-get-flags! (entry)     "-> u56"                       `(cadr ,entry))
-(defun RIB-ENTRY-get-rib-peer (entry)      "-> RIB-PEER"                  (caddr entry))
-(defun RIB-ENTRY-get-rib-adj-entry (entry) "-> RIB-ADJ-ENTRY"             (cdddr entry))
+(defun RIB-ENTRY-get-name (entry)            "-> symbol"                  (car entry))
+(defun RIB-ENTRY-get-flags (entry)           "-> u56"                     (cadr entry))
+(defmacro RIB-ENTRY-get-flags! (entry)       "-> u56"                     `(cadr ,entry))
+(defun RIB-ENTRY-get-rib-peer (entry)        "-> RIB-PEER"                (caddr entry))
+(defun RIB-ENTRY-get-originated-time (entry) "-> u56"                     (cadddr entry))
+(defun RIB-ENTRY-get-rib-adj-entry (entry) "-> RIB-ADJ-ENTRY"             (cddddr entry))
 
-(defun RIB-ENTRY-make (afisafi rib-peer rib-adj-entry flags)
+(defun RIB-ENTRY-make (afisafi rib-peer rib-adj-entry originated-time flags)
   (cons 'RIB-ENTRY
 	(cons (+ afisafi flags)
 	      (cons rib-peer
-		    rib-adj-entry))))
+		    (cons originated-time
+		          rib-adj-entry)))))
 
 (defconstant +RIB-ENTRY-flag-new-announcement+  #x01000000)
 (defconstant +RIB-ENTRY-flag-new-withdrawl+     #x02000000)
@@ -74,9 +79,40 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 	    nlri)
 	rib-entry))
 
+;;(defun RIB-ENTRY-TABLE-add (rib-entry-table rib-entry)
+;;  (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
+;;	(cons rib-entry (RIB-ENTRY-TABLE-get-entries rib-entry-table))))
+
 (defun RIB-ENTRY-TABLE-add (rib-entry-table rib-entry)
-  (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
-	(cons rib-entry (RIB-ENTRY-TABLE-get-entries rib-entry-table))))
+  "Adds RIB-ENTRY to RIB-ENTRY-TABLE.
+If existing entry exists with matching rib-peer value, entry is replaced.
+If existing entry is not found, entry is prepended to 'entries' list.
+Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
+  (let* ((rib-peer (RIB-ENTRY-get-rib-peer rib-entry))
+	 (rib-entries-list (RIB-ENTRY-TABLE-get-entries rib-entry-table))
+	 (existing-entry (find rib-peer
+			       rib-entries-list
+			       :key #'RIB-ENTRY-get-rib-peer
+			       :test #'eq)))
+    
+    ;;(format t "~&RIB-PEER: ~S~%RIB-ENTRIES-LIST: ~S~%EXISTING-ENTRY: ~S"
+   ;;	    rib-peer rib-entries-list existing-entry)
+    (cond (existing-entry
+	   (format t "~%RIB-ENTRY-TABLE-add :replaced-existing-entry~%")
+	   (values (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
+			 (cons rib-entry
+			       ;; TODO: change this to remove-if! once working
+			       (remove-if #'(lambda (x) (eq (RIB-ENTRY-get-rib-peer x)
+							       rib-peer))
+					  rib-entries-list)))
+		   :replaced-existing-entry))
+	  (t
+	   (format t "~%RIB-ENTRY-TABLE-add :added-new-entry~%")
+	   (values (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
+			 (cons rib-entry rib-entries-list))
+		   :added-new-entry)))))
+							  
+
 
 (defun RIB-ENTRY-TABLE-valid1-p (rib-entry-table)
   (>= (length rib-entry-table) 2))
@@ -114,10 +150,33 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 
 (deftype RIB-LOC () '(and (cons (member RIB-LOC)) (satisfies RIB-LOC-valid1-p)))
 
-(defun RIB-LOC-clear(rib-loc)
+(defun RIB-LOC-clear (rib-loc)
   (setf (RIB-LOC-get-empty-slot-count rib-loc)        (RIB-LOC-get-table-size rib-loc))
   (setf (RIB-LOC-get-entry-count rib-loc)              0)
   (fill (RIB-LOC-get-rib-loc-table rib-loc)           nil))
+
+;;; Add, remove & find RIB-PEER entries in RIB-LOC's peer table
+(defun RIB-LOC-add-peer (rib-loc rib-peer)
+  "Adds RIB-PEER to RIB-LOC's list of peers. 
+If 'EQUAL copy of RIB-PEER already exists in the table, returns the copy from the RIB-LOC table.
+Otherwise, RIB-PEER is added to the table, and the passed RIB-PEER is returned"
+  (let* ((peer-thread-name (RIB-PEER-get-thread-name rib-peer))
+	 (current-peer-entry (cdr (assoc peer-thread-name (RIB-LOC-get-peers rib-loc)))))
+    (if current-peer-entry
+	;; only replace existing entry if configuration has changed (to allow multiple reloading of mrt rib files into rib-loc - ensures rib-peer objects 'EQ between file loads)
+	(cond  ((not (equal current-peer-entry rib-peer))
+		;;(format t "~%REPLACING EXISTING RIB-PEER ENTRY~%")
+		(setf (cdr (assoc peer-thread-name (RIB-LOC-get-peers rib-loc)))
+		      rib-peer))
+	       (t
+		;;(format t "~%NOT REPLACING EXISTING RIB-PEER ENTRY~%")
+		current-peer-entry))
+	(push (cons peer-thread-name rib-peer)
+	      (RIB-LOC-get-peers rib-loc)))))
+
+(defun RIB-LOC-get-rib-peer (rib-loc peer-thread-name)
+  "Returns RIB-PEER object with name PEER-THREAD-NAME"
+  (cdr (assoc peer-thread-name (RIB-LOC-get-peers rib-loc))))
 
 (defun RIB-LOC-find-rib-entry-table (rib-loc nlri)
   "Returns RIB-ENTRY-TABLE object if it exists in RIB-LOC matching passed NLRI. Otherwise, returns NIL."
@@ -134,21 +193,18 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
   "Returns RIB-ENTRY object from RIB-LOC table if it matches PEER-ID and RIB-ADJ-ENTRY"
   (let ((rib-entry-table (RIB-LOC-find-rib-entry-table RIB-Loc         ; find if RIB-ENTRY-TABLE exists for this NLRI
 						       (RIB-ADJ-ENTRY-get-nlri rib-adj-entry)))
-	(rib-peer (cdr (assoc peer-thread-id (RIB-LOC-get-peers RIB-Loc)))))
+	(rib-peer (RIB-LOC-get-rib-peer rib-loc peer-thread-id)))
     (if (and rib-entry-table rib-peer)
 	(find rib-peer
 	      (RIB-ENTRY-TABLE-get-entries rib-entry-table)
 	      :key #'RIB-ENTRY-get-rib-peer
 	      :test #'eq)
 	nil)))
-  
+
 (defun RIB-LOC-add-entry (rib-loc rib-entry)
-  "Adds passed RIB-ENTRY object to the hash table RIB-LOC. RIB-ENTRY is added to RIB-LOC if the object is not already present in the table.
-Returns two values
-1. RIB-ENTRY = the passed RIB-ENTRY
-2. [ :added-new-entry | :duplicate-entry-found ]
-  :added-entry         => entry successfully added to table (either added to empty slot or appened to an existing slot list)
-  :duplicate-entry-found   => an EQUAL copy of the newly created RIB-ENTRY was found in the table (no changes made to RIB-LOC)"
+  "Adds passed RIB-ENTRY object to the hash table RIB-LOC. RIB-ENTRY is added to RIB-LOC if the object is not already present in the table (no RIB-ENTRY exists with same NLRI).
+If RIB-ENTRY already exists for this NLRI/PEER-ID, the entry is replaced.
+Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :added-new-table ]"
   
   (let* ((rib-adj-entry (RIB-ENTRY-get-rib-adj-entry rib-entry))
 	 (nlri (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
@@ -156,32 +212,33 @@ Returns two values
 			      (RIB-LOC-get-table-mask rib-loc)))           
 	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
 				  table-index)))
-        (cond ((null table-slot-value)
-	       ;; slot is empty. push a new RIB-ENTRY-TABLE onto table-slot-value,
-	       ;; decrement empty-slot-count, and return
-	       (push (RIB-ENTRY-TABLE-make nlri rib-entry)
-		     (svref (RIB-LOC-get-rib-loc-table rib-loc)
-			    table-index))
-	       (incf (RIB-LOC-get-entry-count rib-loc))
-	       (decf (RIB-LOC-get-empty-slot-count rib-loc))
-	      ;; (format t "~&NEW RIB-ENTRY-TABLE ADDED TO EMPTY SLOT~%")
-	       (values rib-entry :added-entry))
-	      (t
-	       ;; slot already occupied by list
-	       ;; 1. find if there is a RIB-ENTRY-TABLE for this nlri
-	       (let ((matching-rib-entry-table (find nlri
-					             table-slot-value
-						     :key #'RIB-ENTRY-TABLE-get-nlri
-						     :test #'equal)))
-		 (cond (matching-rib-entry-table
-		;;	(format t "~&NEW RIB-ENTRY ADDED TO EXISTING RIB-ENTRY-TABLE~%")
-			(RIB-ENTRY-TABLE-add matching-rib-entry-table
-					     rib-entry))
-		       (t
-		;;	(format t "~&NEW RIB-ENTRY-TABLE ADDED TO OCCUPIED SLOT~%")
-			(push (RIB-ENTRY-TABLE-make nlri rib-entry)
-			      (svref (RIB-LOC-get-rib-loc-table rib-loc)
-				     table-index)))))))))
+    (cond ((null table-slot-value)
+	   ;; slot is empty. push a new RIB-ENTRY-TABLE onto table-slot-value,
+	   ;; decrement empty-slot-count, and return
+	   (push (RIB-ENTRY-TABLE-make nlri rib-entry)
+		 (svref (RIB-LOC-get-rib-loc-table rib-loc)
+			table-index))
+	   (incf (RIB-LOC-get-entry-count rib-loc))
+	   (decf (RIB-LOC-get-empty-slot-count rib-loc))
+	   (format t "~&NEW RIB-ENTRY-TABLE ADDED TO EMPTY SLOT~%")
+	   (values rib-entry :added-new-table))
+	  (t
+	   ;; slot already occupied by list
+	   ;; 1. find if there is a RIB-ENTRY-TABLE for this nlri
+	   (let ((matching-rib-entry-table (find nlri
+						 table-slot-value
+						 :key #'RIB-ENTRY-TABLE-get-nlri
+						 :test #'equal)))
+	     (cond (matching-rib-entry-table
+		    (format t "~&NEW RIB-ENTRY ADDED TO EXISTING RIB-ENTRY-TABLE~%")
+		    (RIB-ENTRY-TABLE-add matching-rib-entry-table
+					 rib-entry))
+		   (t
+		    (format t "~&NEW RIB-ENTRY-TABLE ADDED TO OCCUPIED SLOT~%")
+		    (values (push (RIB-ENTRY-TABLE-make nlri rib-entry)
+				  (svref (RIB-LOC-get-rib-loc-table rib-loc)
+					 table-index))
+			    :added-new-table))))))))
 
 (defun RIB-LOC-update-collect-entries (rib-loc &key (test-fn #'identity) (update-fn nil) (collect? t))
   "Iterates over entire RIB-LOC table and collects rib-entry objects for which TEST-FN returns true (also optionally updates each entry object)
