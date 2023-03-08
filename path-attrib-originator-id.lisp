@@ -222,4 +222,4 @@ Arguments: obj [CLUSTER-LIST], cluster-id [IPV4]"
   (CLUSTER-LIST-make (PATH-ATTRIB-get-attribute-type-field obj)
 		     (+ 4 (PATH-ATTRIB-get-attribute-length obj))
 		     (cons cluster-id-ipv4
-			   (CLUSTER-LIST-get-cluster-id-list))))
+			   (CLUSTER-LIST-get-cluster-id-list obj))))

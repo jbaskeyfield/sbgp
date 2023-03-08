@@ -3,17 +3,32 @@
 slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), sorted by RIB-ADJ-ENTRY-get-nlri
 |#
 
-(defun RIB-ENTRY-get-name (entry)          "-> symbol"                       (car entry))
-(defun RIB-ENTRY-get-flags (entry)         "-> u56"                          (cadr entry))
-(defmacro RIB-ENTRY-get-flags! (entry)     "-> u56"                          `(cadr ,entry))
-(defun RIB-ENTRY-get-peer-id (entry)       "-> symbol (name of peer thread)" (caddr entry))
-(defun RIB-ENTRY-get-rib-adj-entry (entry) "-> RIB-ADJ-ENTRY"                (cdddr entry))
+(defun RIB-PEER-get-thread-name (peer)       "-> symbol (name of peer thread)" (cadr peer))
+(defun RIB-PEER-get-internal-external (peer) "-> symbol [internal|external]"   (caddr peer))
+(defun RIB-PEER-get-router-id (peer)         "-> IPV4"                         (cadddr peer))
+(defun RIB-PEER-get-ip-address (peer)        "-> IPV4 | IPV6"                  (car (cddddr peer)))
 
-(defun RIB-ENTRY-make (afisafi peer-id rib-adj-entry &rest flags)
+(defun RIB-PEER-make (thread-name internal-external router-id ip-address)
+  "Link to RIB-PEER object is included in each RIB-ENTRY to indicate source and provide info for best-path selection (iBGP/eBGP, router id, ip address).
+Arguments: thread-name [symbol - name of peer thread], internal-external [symbol - 'INTERNAL|'EXTERNAL], router-id [IPV4], ip-address [IPV4|IPV6]."
+  (list 'RIB-PEER
+	thread-name
+	internal-external
+	router-id
+	ip-address))
+	
+
+(defun RIB-ENTRY-get-name (entry)          "-> symbol"                    (car entry))
+(defun RIB-ENTRY-get-flags (entry)         "-> u56"                       (cadr entry))
+(defmacro RIB-ENTRY-get-flags! (entry)     "-> u56"                       `(cadr ,entry))
+(defun RIB-ENTRY-get-rib-peer (entry)      "-> RIB-PEER"                  (caddr entry))
+(defun RIB-ENTRY-get-rib-adj-entry (entry) "-> RIB-ADJ-ENTRY"             (cdddr entry))
+
+(defun RIB-ENTRY-make (afisafi rib-peer rib-adj-entry flags)
   (cons 'RIB-ENTRY
-	(cons (+ afisafi (reduce #'+ flags))
-	      (cons peer-id
-	            rib-adj-entry))))
+	(cons (+ afisafi flags)
+	      (cons rib-peer
+		    rib-adj-entry))))
 
 (defconstant +RIB-ENTRY-flag-new-announcement+  #x01000000)
 (defconstant +RIB-ENTRY-flag-new-withdrawl+     #x02000000)
@@ -68,30 +83,34 @@ slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), so
 
 (deftype RIB-ENTRY-TABLE () '(and (cons (member RIB-ENTRY-TABLE)) (satisfies RIB-ENTRY-TABLE-valid1-p)))
 
-(defmacro RIB-LOC-get-name (rib-loc)             "-> symbol"   `(svref ,rib-loc 0))
-(defmacro RIB-LOC-get-num-bits (rib-loc)         "-> integer"  `(svref ,rib-loc 1))
-(defmacro RIB-LOC-get-table-size (rib-loc)       "-> integer"  `(svref ,rib-loc 2))
-(defmacro RIB-LOC-get-empty-slot-count (rib-loc) "-> integer"  `(svref ,rib-loc 3))
-(defmacro RIB-LOC-get-entry-count (rib-loc)      "-> integer"  `(svref ,rib-loc 4))
-(defmacro RIB-LOC-get-table-mask (rib-loc)       "-> u56"      `(svref ,rib-loc 5))
-(defmacro RIB-LOC-get-rib-loc-table (rib-loc)    "-> vector"   `(svref ,rib-loc 6))
+(defmacro RIB-LOC-get-name (rib-loc)             "-> symbol"    `(svref ,rib-loc 0))
+(defmacro RIB-LOC-get-flags (rib-loc)            "-> u56"       `(svref ,rib-loc 1))
+(defmacro RIB-LOC-get-num-bits (rib-loc)         "-> integer"   `(svref ,rib-loc 2))
+(defmacro RIB-LOC-get-table-size (rib-loc)       "-> integer"   `(svref ,rib-loc 3))
+(defmacro RIB-LOC-get-empty-slot-count (rib-loc) "-> integer"   `(svref ,rib-loc 4))
+(defmacro RIB-LOC-get-entry-count (rib-loc)      "-> integer"   `(svref ,rib-loc 5))
+(defmacro RIB-LOC-get-table-mask (rib-loc)       "-> u56"       `(svref ,rib-loc 6))
+(defmacro RIB-LOC-get-rib-loc-table (rib-loc)    "-> vector"    `(svref ,rib-loc 7))
+(defmacro RIB-LOC-get-peers (rib-loc)            "-> assoc list [thread-name . RIB-PEER]" `(svref ,rib-loc 8))
 
 (defun RIB-LOC-make (table-size-num-bits)
-  (let ((rib-loc (make-array 7 :initial-element nil))
+  (let ((rib-loc (make-array 9 :initial-element nil))
 	(table-size (ash 1 table-size-num-bits)))
 
-    (setf (RIB-LOC-get-name rib-loc)                    'RIB-LOC)                 
+    (setf (RIB-LOC-get-name rib-loc)                    'RIB-LOC)
+    (setf (RIB-LOC-get-flags rib-loc)                   0)
     (setf (RIB-LOC-get-num-bits rib-loc)                table-size-num-bits)     
     (setf (RIB-LOC-get-table-size rib-loc)              table-size)     
     (setf (RIB-LOC-get-empty-slot-count rib-loc)        table-size)
     (setf (RIB-LOC-get-entry-count rib-loc)             0)
     (setf (RIB-LOC-get-table-mask rib-loc)              (1- table-size))     
     (setf (RIB-LOC-get-rib-loc-table rib-loc)           (make-array table-size :initial-element nil))
+    (setf (RIB-LOC-get-peers rib-loc)                   nil)
 
     rib-loc))
 
 (defun RIB-LOC-valid1-p (rib-loc)
-  (and (= (length rib-loc) 7)))
+  (and (= (length rib-loc) 8)))
 
 (deftype RIB-LOC () '(and (cons (member RIB-LOC)) (satisfies RIB-LOC-valid1-p)))
 
@@ -111,14 +130,15 @@ slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), so
 	  :key #'RIB-ENTRY-TABLE-get-nlri
 	  :test #'equal)))
 
-(defun RIB-LOC-find-rib-entry (rib-loc peer-id rib-adj-entry)
+(defun RIB-LOC-find-rib-entry (rib-loc peer-thread-id rib-adj-entry)
   "Returns RIB-ENTRY object from RIB-LOC table if it matches PEER-ID and RIB-ADJ-ENTRY"
-  (let ((rib-entry-table (RIB-LOC-find-rib-entry-table rib-loc                            ; find if RIB-ENTRY-TABLE exists for this NLRI
-						       (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))))
-    (if rib-entry-table
-	(find peer-id
+  (let ((rib-entry-table (RIB-LOC-find-rib-entry-table RIB-Loc         ; find if RIB-ENTRY-TABLE exists for this NLRI
+						       (RIB-ADJ-ENTRY-get-nlri rib-adj-entry)))
+	(rib-peer (cdr (assoc peer-thread-id (RIB-LOC-get-peers RIB-Loc)))))
+    (if (and rib-entry-table rib-peer)
+	(find rib-peer
 	      (RIB-ENTRY-TABLE-get-entries rib-entry-table)
-	      :key #'RIB-ENTRY-get-peer-id
+	      :key #'RIB-ENTRY-get-rib-peer
 	      :test #'eq)
 	nil)))
   
@@ -202,4 +222,100 @@ Examples:
 			  (decf (RIB-LOC-get-entry-count rib-loc)
 				remove-count)))))
     rtn-entries))
-			
+
+
+(defun RIB-ENTRY-best-path (rib-entry1 rib-entry2)
+  "Compares two RIB-ENTRY objects and returns 'best' path according to BGP Best Path Selection Algorithm"
+ 
+    (let ((pa-list1 (RIB-ADJ-ENTRY-get-pa-list (RIB-ENTRY-get-rib-adj-entry rib-entry1)))
+	  (pa-list2 (RIB-ADJ-ENTRY-get-pa-list (RIB-ENTRY-get-rib-adj-entry rib-entry2))))
+      
+      ;; Prefer highest LOCAL-PREF (paths with no LOCAL-PREF assigned 100)
+      (let ((local-pref1 (find 'LOCAL-PREF pa-list1 :key #'car :test #'eq))
+	    (local-pref2 (find 'LOCAL-PREF pa-list2 :key #'car :test #'eq)))
+
+	(let ((value1 (if local-pref1
+			  (LOCAL-PREF-get-value local-pref1)
+			  100))
+	      (value2 (if local-pref2
+			  (LOCAL-PREF-get-value local-pref2)
+			  100)))
+
+	(if (> value1 value2) (return-from RIB-ENTRY-best-path rib-entry1))
+	(if (> value2 value1) (return-from RIB-ENTRY-best-path rib-entry2)))
+      
+      ;; Prefer shortest AS-PATH
+      (let ((as-path-length1 (AS-PATH-get-length (find 'AS-PATH pa-list1 :key #'car :test #'eq)))
+	    (as-path-length2 (AS-PATH-get-length (find 'AS-PATH pa-list2 :key #'car :test #'eq))))
+
+	(if (< as-path-length1 as-path-length2) (return-from RIB-ENTRY-best-path rib-entry1))
+	(if (< as-path-length2 as-path-length1) (return-from RIB-ENTRY-best-path rib-entry2)))
+
+      ;; Prefer lowest ORIGIN
+      (let ((origin1 (ORIGIN-get-value (find 'ORIGIN pa-list1 :key #'car :test #'eq)))
+	    (origin2 (ORIGIN-get-value (find 'ORIGIN pa-list2 :key #'car :test #'eq))))
+	
+	(if (< origin1 origin2) (return-from RIB-ENTRY-best-path rib-entry1))
+	(if (< origin2 origin1) (return-from RIB-ENTRY-best-path rib-entry2))))
+
+      ;; Prefer lowest MULTI-EXIT-DISC (paths with no MED assigned 0)
+      (let ((med1 (find 'MULTI-EXIT-DISC pa-list1 :key #'car :test #'eq))
+	    (med2 (find 'MULTI-EXIT-DISC pa-list2 :key #'car :test #'eq)))
+
+	(let ((value1 (if med1
+			  (MULTI-EXIT-DISC-get-value med1)
+			  0))
+	      (value2 (if med2
+			  (MULTI-EXIT-DISC-get-value med2)
+			  0)))
+	  
+	  (if (< value1 value2) (return-from RIB-ENTRY-best-path rib-entry1))
+	  (if (< value2 value1) (return-from RIB-ENTRY-best-path rib-entry2))))
+
+      (let ((rib-peer1 (RIB-ENTRY-get-rib-peer rib-entry1))
+	    (rib-peer2 (RIB-ENTRY-get-rib-peer rib-entry2)))
+	
+	;; Prefer EXTERNAL (EBGP) over INTERNAL (EBGP) (RIB-PEER-get-internal-external peer)
+	(let ((int1 (RIB-PEER-get-internal-external rib-peer1))
+	      (int2 (RIB-PEER-get-internal-external rib-peer2)))
+
+	  (if (and (eq int1 'EXTERNAL)
+		   (eq int2 'INTERNAL))
+	      (return-from RIB-ENTRY-best-path rib-entry1))
+	  (if (and (eq int2 'EXTERNAL)
+		   (eq int1 'INTERNAL))
+	      (return-from RIB-ENTRY-best-path rib-entry2)))
+	      
+	;; Prefer lowest router-id (RIB-PEER-get-router-id peer)
+	(let ((router-id1 (RIB-PEER-get-router-id rib-peer1))
+	      (router-id2 (RIB-PEER-get-router-id rib-peer2)))
+
+	  (if (> (IPV4-get-value router-id1)
+		 (IPV4-get-value router-id2))
+	      (return-from RIB-ENTRY-best-path rib-entry1))
+	  
+	  (if (> (IPV4-get-value router-id2)
+		 (IPV4-get-value router-id1))
+	      (return-from RIB-ENTRY-best-path rib-entry2)))
+		 
+	;; Prefer shortest cluster list length CLUSTER-LIST. Length is 0 for no list
+	(let ((cluster-list1 (find 'CLUSTER-LIST pa-list1 :key #'car :test #'eq))
+	      (cluster-list2 (find 'CLUSTER-LIST pa-list2 :key #'car :test #'eq)))
+	  (let ((len1 (if cluster-list1
+			  (length (CLUSTER-LIST-get-cluster-id-list cluster-list1))
+			  0))
+		(len2 (if cluster-list2
+			  (length (CLUSTER-LIST-get-cluster-id-list cluster-list2))
+			  0)))
+	    
+	    (if (< len1 len2) (return-from RIB-ENTRY-best-path rib-entry1))
+	    (if (< len2 len1) (return-from RIB-ENTRY-best-path rib-entry2))))
+
+	;; Prefer the peer with lowest IP address (RIB-PEER-get-ip-address peer)
+	(let ((ip-addr1 (RIB-PEER-get-ip-address rib-peer1))
+	      (ip-addr2 (RIB-PEER-get-ip-address rib-peer2)))
+
+	  (if (TL-greater-than-p ip-addr1 ip-addr2)
+	      rib-entry2
+	      rib-entry1)))))
+  

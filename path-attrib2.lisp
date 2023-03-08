@@ -44,6 +44,8 @@ PATH-ATTRIB-get-io-rw-octets (obj)
       (6  (ATOMIC-AGGREGATE-io-read attribute-type attribute-length))                              ;  ATOMIC_AGGREGATE [RFC4271]
       (7  (AGGREGATOR-io-read 4-octet-asn-flag attribute-type attribute-length stream-in))         ;  AGGREGATOR [RFC4271]
       (8  (COMMUNITY-io-read attribute-type attribute-length stream-in))                           ;  COMMUNITY [RFC1997]
+      (9  (ORIGINATOR-ID-io-read attribute-type attribute-length stream-in))                       ;  ORIGINATOR_ID [RFC4456]
+      (10 (CLUSTER-LIST-io-read attribute-type attribute-length stream-in))                        ;  CLUSTER_LIST [RFC4456]
       (14 (MP-REACH-NLRI-io-read attribute-type attribute-length stream-in))                       ;  MP_REACH_NLRI [RFC4760]
       (15 (MP-UNREACH-NLRI-io-read attribute-type attribute-length stream-in))                     ;  MP_UNREACH_NLRI [RFC4760]
       (32 (LARGE-COMMUNITY-io-read attribute-type attribute-length stream-in))                     ;  LARGE_COMMUNITY [RFC8092]
@@ -68,6 +70,8 @@ PATH-ATTRIB-get-io-rw-octets (obj)
     (6  (ATOMIC-AGGREGATE-io-write obj stream-out))                ;  ATOMIC_AGGREGATE [RFC4271]
     (7  (AGGREGATOR-io-write 4-octet-asn-flag obj stream-out))     ;  AGGREGATOR [RFC4271]
     (8  (COMMUNITY-io-write obj stream-out))                       ;  COMMUNITY [RFC1997]
+    (9  (ORIGINATOR-ID-io-write obj stream-out))                   ;  ORIGINATOR_ID [RFC4456]
+    (10 (CLUSTER-LIST-io-write obj stream-out))                    ;  CLUSTER_LIST [RFC4456]
     (14 (MP-REACH-NLRI-io-write obj stream-out))                   ;  MP_REACH_NLRI [RFC4760]
     (15 (MP-UNREACH-NLRI-io-write obj stream-out))                 ;  MP_UNREACH_NLRI [RFC4760]
     (32 (LARGE-COMMUNITY-io-write obj stream-out))                 ;  LARGE_COMMUNITY [RFC8092]
@@ -84,7 +88,9 @@ PATH-ATTRIB-get-io-rw-octets (obj)
 	 (LOCAL-PREF		 (LOCAL-PREF-valid1-p obj))          
 	 (ATOMIC-AGGREGATE	 (ATOMIC-AGGREGATE-valid1-p obj))    
 	 (AGGREGATOR		 (AGGREGATOR-valid1-p obj))          
-	 (COMMUNITY		 (COMMUNITY-valid1-p obj))           
+	 (COMMUNITY		 (COMMUNITY-valid1-p obj))
+	 (ORIGINATOR-ID		 (ORIGINATOR-ID-valid1-p obj))
+	 (CLUSTER-LIST		 (CLUSTER-LIST-valid1-p obj))
 	 (MP-REACH-NLRI	         (MP-REACH-NLRI-valid1-p obj))       
 	 (MP-UNREACH-NLRI	 (MP-UNREACH-NLRI-valid1-p obj))     
 	 (LARGE-COMMUNITY	 (LARGE-COMMUNITY-valid1-p obj))     
@@ -102,7 +108,9 @@ PATH-ATTRIB-get-io-rw-octets (obj)
 	 (LOCAL-PREF		 (LOCAL-PREF-valid2-p obj))          
 	 (ATOMIC-AGGREGATE	 (ATOMIC-AGGREGATE-valid2-p obj))    
 	 (AGGREGATOR		 (AGGREGATOR-valid2-p obj))          
-	 (COMMUNITY		 (COMMUNITY-valid2-p obj))           
+	 (COMMUNITY		 (COMMUNITY-valid2-p obj))
+	 (ORIGINATOR-ID		 (ORIGINATOR-ID-valid2-p obj))
+	 (CLUSTER-LIST		 (CLUSTER-LIST-valid2-p obj))
 	 (MP-REACH-NLRI	         (MP-REACH-NLRI-valid2-p obj))       
 	 (MP-UNREACH-NLRI	 (MP-UNREACH-NLRI-valid2-p obj))     
 	 (LARGE-COMMUNITY	 (LARGE-COMMUNITY-valid2-p obj))     
@@ -116,7 +124,9 @@ PATH-ATTRIB-get-io-rw-octets (obj)
     (NEXT-HOP		  (NEXT-HOP-zhash 0 obj))
     (COMMUNITY		  (COMMUNITY-zhash 0 obj)) 
     (MULTI-EXIT-DISC	  (MULTI-EXIT-DISC-zhash 0 obj))     
-    (LOCAL-PREF		  (LOCAL-PREF-zhash 0 obj))          
+    (LOCAL-PREF		  (LOCAL-PREF-zhash 0 obj))
+    (ORIGINATOR-ID        (ORIGINATOR-ID-zhash 0 obj))
+    (CLUSTER-LIST	  (CLUSTER-LIST-zhash 0 obj))
     (ATOMIC-AGGREGATE	  (ATOMIC-AGGREGATE-zhash 0 obj))    
     (AGGREGATOR		  (AGGREGATOR-zhash 0 obj))          
     (LARGE-COMMUNITY	  (LARGE-COMMUNITY-zhash 0 obj))
@@ -124,7 +134,8 @@ PATH-ATTRIB-get-io-rw-octets (obj)
     (t 0))) 
 
 (defun PATH-ATTRIB-zhash-list (list-path-attrib)
-  (do ((lst (cdr list-path-attrib) (cdr lst))
+  "Returned combined 'logxor' of all path attributes in LIST-PATH-ATTRIB"
+  (do ((lst list-path-attrib (cdr lst))
        (hash 0 (logxor hash
 		       (PATH-ATTRIB-zhash (car lst)))))
       ((null lst) hash)))

@@ -127,7 +127,7 @@ Passed SPECIFICATION is list of integers describing number of bytes per integer 
   (do ((spec specification (if (cdr spec)
 			       (cdr spec)
 			       spec))
-       (lst (cdr obj) (cdr lst))
+       (lst (cdr obj) (cdr lst))        ; skip over first element of list
        (offset start-offset (+ offset (car spec)))
        (hash 0 (logxor hash
 		       (zhash-integer (car spec)

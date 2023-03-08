@@ -88,6 +88,11 @@ b) AS_PATH (Type Code 2):
 ;;; AS-PATH - 'inherits' functions from PATH-ATTRIB, TAGGED-LIST
 (in-package :sbgp)
 
+(defconstant AS-SET  1)
+(defconstant AS-SEQ 2)
+(defconstant AS-CONFED-SEQUENCE 3)  ; rfc5065
+(defconstant AS-CONFED-SET 4)       ; rfc5065
+
 (defun AS-PATH-get-type (obj)   "-> u8"                 (cadddr obj))
 (defun AS-PATH-get-length (obj) "-> u8"                 (car (cddddr obj)))
 (defun AS-PATH-get-value (obj)  "-> list [ u16 | u32 ]" (cdr (cddddr obj)))
@@ -142,8 +147,8 @@ b) AS_PATH (Type Code 2):
   "Test list values are within allowed range"
   (and (eq 'AS-PATH (TL-get-name obj))
        (= #x4002 (logandc1 #x1000 (PATH-ATTRIB-get-attribute-type-field obj)))   ; type field masked with extended length bit
-       (or (= 1 (AS-PATH-get-type obj))                                          ; AS-SET = 1
-	   (= 2 (AS-PATH-get-type obj)))                                         ; or AS-SEQ = 2
+       (member (AS-PATH-get-type obj)
+	       '(AS-SET AS-SEQ AS-CONFED-SEQUENCE AS-CONFED-SET))
        (let ((len (length (AS-PATH-get-value obj))))                  
 	 (and (= (PATH-ATTRIB-get-attribute-length obj) (+ 2 (* len 4)))         ; attribute-length field matches length of path list + 2 bytes
 	      (<= (AS-PATH-get-length obj) len)))))                              ; possible AS-SET after AS-SEQ so path length field can be smaller 
@@ -197,27 +202,7 @@ If 4-OCTET-ASN-FLAG is T => list of 4 byte AS numbers (otherwise 2 bytes)"
       (io-write-uNbe u8 as-path-type stream-out)
       (io-write-uNbe u8 as-path-length stream-out)
       (io-write-uNbe-octets u32 (- attribute-length 2) as-path-list stream-out))))
-#|
-NOTE: creation of AS4-PATH and replacement of >65535 with AS_TRANS (23456) is planned to be done when rib-loc (router) sends updates to rib-adj (peer), so all the AS-PATH serialisation routines have to worry about is selecting correct written octet size and modifying attribute length field on read/write. (all attribute-length fields on all AS-PATH records should assume 4 octet ASN)
 
-RFC4893
-4.2.2.  Generating Updates
-
-   When communicating with an OLD BGP speaker, a NEW speaker MUST send
-   the AS path information in the AS_PATH attribute encoded with 2-octet
-   AS numbers.  The NEW speaker MUST also send the AS path information
-   in the AS4_PATH attribute (encoded with 4-octet AS numbers), except
-   for the case where the entire AS path information is composed of 2-
-   octet AS numbers only.  In this case, the NEW speaker SHOULD NOT send
-   the AS4_PATH attribute.
-
-   In the AS_PATH attribute encoded with 2-octet AS numbers, non-
-   mappable 4-octet AS numbers are represented by the well-known 2-octet
-   AS number, AS_TRANS.  This will preserve the path length property of
-   the AS path information and also help in updating the AS path
-   information received on a NEW BGP speaker from an OLD speaker, as
-   explained in the next section.
-|#
 
 (defun AS-PATH-io-write-2-octet-asn (obj stream-out)
   (destructuring-bind (attribute-type attribute-length as-path-type as-path-length . as-path-list)

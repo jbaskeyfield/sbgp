@@ -11,7 +11,6 @@
    (peer-threads nil)
 
    (rib-loc nil)
-   (rib-loc-flags 0)
    (*nlri-cache* nil)
    
    (router-config nil)
@@ -45,7 +44,15 @@
 	 (push new-peer-thread peer-threads)
 	 (setf (getf %all-queues
 		     (THREAD-get-thread-name-symbol new-peer-thread))
-	       (THREAD-get-control-queue new-peer-thread))))))
+	       (THREAD-get-control-queue new-peer-thread))))
+      (RIB-PEER
+       (let ((peer-thread-name (MSG-get-arg2 %message))
+	     (rib-peer (MSG-get-arg3 %message)))
+	 (format t "~&SETTING RIB-PEER ~S : ~S~%" peer-thread-name rib-peer)
+	 (push (cons peer-thread-name rib-peer)
+	       (RIB-LOC-get-peers rib-loc))
+	 (format t "~&RIB-LOC-get-peers: ~S~%" (RIB-LOC-get-peers rib-loc))))))
+   
    (GET
     (case (MSG-get-arg1 %message)
       (*NLRI-CACHE*    (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name '*NLRI-CACHE* *nlri-cache*)))
@@ -81,27 +88,30 @@
 
       ;; TODO rib-adj -> rib-loc filter/update function
       
-      (setf rib-loc-flags (logior +RIB-ENTRY-flag-new-announcement+
-				  rib-loc-flags))
+      (setf (RIB-LOC-get-flags rib-loc)
+	    (logior +RIB-ENTRY-flag-new-announcement+
+		    (RIB-LOC-get-flags rib-loc)))
       
       (dolist (rib-adj-entry rib-adj-entry-list)
 	(RIB-LOC-add-entry RIB-Loc
 			   (RIB-ENTRY-make (NLRI-get-afisafi (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
-					   peer-id
+					   (cdr (assoc peer-id (RIB-LOC-get-peers RIB-Loc)))
 					   rib-adj-entry
 					   +RIB-ENTRY-flag-new-announcement+)))))
+   
    (WITHDRAWL-RIB-ADJ->RIB-LOC
-    (let ((peer-id            (MSG-get-arg1 %message))
+    (let ((peer-thread-id     (MSG-get-arg1 %message))
 	  (rib-adj-entry-list (MSG-get-arg2 %message)))
 
       ;; TODO rib-adj -> rib-loc filter/update function
       
-      (setf rib-loc-flags (logior +rib-entry-flag-new-withdrawl+
-				  rib-loc-flags))
+      (setf (RIB-LOC-get-flags rib-loc)
+	    (logior +rib-entry-flag-new-withdrawl+
+		    (RIB-LOC-get-flags rib-loc)))
 
       (dolist (rib-adj-entry rib-adj-entry-list)
 	(let ((rib-entry (RIB-LOC-find-rib-entry RIB-Loc
-						 peer-id
+						 peer-thread-id
 						 rib-adj-entry)))
 	  (if rib-entry
 	      (RIB-ENTRY-set-new-withdrawl-flag rib-entry))))))
@@ -109,7 +119,8 @@
    
    (ROUTER-TIMERS-rib-loc-scan-Timer-Expires
     ;; process announcements
-    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-announcement+))
+    (unless (= 0 (logand (RIB-LOC-get-flags rib-loc)
+			 +RIB-ENTRY-flag-new-announcement+))
       (format t "~&ENTERING LOOP-END-BLOCK process updates~%")
       (let* ((new-announcements (RIB-LOC-update-collect-entries rib-loc
 							        :test-fn #'RIB-ENTRY-new-announcement-flag-setp
@@ -124,10 +135,12 @@
 		  do (THREAD-send-message peer-thread
 					  (MSG-make 'ANNOUNCE-RIB-LOC->RIB-ADJ sorted-rib-entries))))))
       ;; clear new-announcement-flag
-      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-announcement+
-				    rib-loc-flags)))
+      (setf (RIB-LOC-get-flags rib-loc)
+	    (logandc1 +RIB-ENTRY-flag-new-announcement+
+		      (RIB-LOC-get-flags rib-loc))))
     
-    (unless (= 0 (logand rib-loc-flags +RIB-ENTRY-flag-new-withdrawl+))
+    (unless (= 0 (logand (RIB-LOC-get-flags rib-loc)
+			 +RIB-ENTRY-flag-new-withdrawl+))
       ;; process withdrawls
       
       (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
@@ -142,18 +155,18 @@
 		  do (THREAD-send-message peer-thread
 					  (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ sorted-rib-entries))))))
       ;; clear new-withdrawl-flag
-      (setf rib-loc-flags (logandc1 +RIB-ENTRY-flag-new-withdrawl+
-				    rib-loc-flags)))
+      (setf (RIB-LOC-get-flags rib-loc)
+	    (logandc1 +RIB-ENTRY-flag-new-withdrawl+
+		      (RIB-LOC-get-flags rib-loc))))
     ;; restart rib-loc-scan-timer
     (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
     
    (PRINT-ENV2
-    (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%RIB-Loc-flagst: ~S~%router-config: ~S~%peer-configs: ~S~%"
+    (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%router-config: ~S~%peer-configs: ~S~%"
 	    %this-thread-name
 	    tcpserver-thread
 	    peer-threads
 	    RIB-Loc
-	    RIB-Loc-flags
 	    router-config
 	    peer-configs)))
 

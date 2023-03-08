@@ -174,7 +174,7 @@
     (let* ((rib-entries (MSG-get-arg1 %message))
 	   (rib-adj-entries (loop for rib-entry in rib-entries
 				  when (not (eq %this-thread-name                     ;; TODO rib-loc -> rib-adj filter/update function
-						(RIB-ENTRY-get-peer-id rib-entry)))
+					        (RIB-PEER-get-thread-name (RIB-ENTRY-get-rib-peer rib-entry))))
 				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
 
       (dolist (rib-adj-entry rib-adj-entries)
@@ -191,9 +191,9 @@
     (let* ((rib-entries (MSG-get-arg1 %message))
 	   (rib-adj-entries (loop for rib-entry in rib-entries                       
 				  when (not (eq %this-thread-name                     ;; TODO rib-loc -> rib-adj filter/update function
-						(RIB-ENTRY-get-peer-id rib-entry)))
+					        (RIB-PEER-get-thread-name (RIB-ENTRY-get-rib-peer rib-entry))))
 				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
-    
+      
       (dolist (rib-adj-entry rib-adj-entries)
 	(let ((removed-entry (RIB-ADJ-remove-entry RIB-Adj-out rib-adj-entry)))
 	  (if removed-entry
@@ -205,7 +205,7 @@
 
    (PEER-TIMERS-rib-adj-scan-Timer-Expires
    ;; restart rib-adj-scan-Timer
-   (PEER-TIMERS-start-rib-adj-scan-Timer peer-timers %this-thread-name))
+    (PEER-TIMERS-start-rib-adj-scan-Timer peer-timers %this-thread-name))
 
    
    (Event-1-ManualStart
@@ -1002,6 +1002,14 @@
        (FSM-TIMERS-start-HoldTimer FSM-timers %this-thread-name)
 
        ;; changes its state to Established.
+       (QUEUE-send-message %control-queue
+			   (MSG-make 'ADD 'RIB-PEER
+				     %this-thread-name
+				     (RIB-PEER-make %this-thread-name
+						    'INTERNAL
+						    (PEER-SESSION-STATE-get-peer-router-id peer-session-state)
+						    (PEER-CONFIG-get-peer-ip-address peer-config))))
+						    
        (when *debug-fsm-state* (format *debug-fsm-state* "~&~S FSM-STATE State change: ~S -> ESTABLISHED~%" %this-thread-name FSM-state))
        (setf FSM-state 'ESTABLISHED))
       
