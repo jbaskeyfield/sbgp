@@ -18,6 +18,8 @@
 
 (deftype SBGP-UPDATE () '(and (cons (member SBGP-UPDATE)) (satisfies SBGP-UPDATE-valid1-p)))
 
+(defparameter +SBGP-path-attributes+ (list 'ORIGIN 'AS-PATH 'NEXT-HOP 'MULTI-EXIT-DISC 'LOCAL-PREF 'ATOMIC-AGGREGATE 'AGGREGATOR 'COMMUNITY 'LARGE-COMMUNITY 'ORIGINATOR-ID 'CLUSTER-LIST 'PATH-ATTRIB-UNKNOWN))
+
 (defun BGP-UPDATE->SBGP-UPDATE (bgp-update)
   "Walks tree BGP-UPDATE and returns lists of NLRI-WITHDRAWL, NLRI, NEXT-HOP, and other PATH-ATTRIB (sorted in attribute type order)"
   (let ((nlri-withdrawl-list nil)
@@ -33,7 +35,7 @@
 		       ((eq value 'NLRI)
 			(push node
 			      nlri-list))
-		       ((member value '(NEXT-HOP ORIGIN AS-PATH MULTI-EXIT-DISC LOCAL-PREF ATOMIC-AGGREGATE AGGREGATOR COMMUNITY LARGE-COMMUNITY PATH-ATTRIB-UNKNOWN))
+		       ((member value +SBGP-path-attributes+)
 			(push node path-attrib-list))
 		       (t
 			(if (consp (cdr node))
@@ -46,6 +48,23 @@
 			      #'<
 			      :key #'PATH-ATTRIB-get-type-subfield)))))
 
+(defun PA-LIST->SBGP-PA-LIST (path-attrib-list-in)
+  "Walks tree of PATH-ATTRIB-LIST and returns lists of path attributes in +SBGP-path-attributes+ (excludes MP-REACH/UNREACH)"
+  (let ((path-attrib-list-out nil))
+    (labels ((tree-walk (node)
+	       (if (consp (car node))
+		   (tree-walk (car node)))
+	       (let ((value (car node)))
+		 (cond ((member value +SBGP-path-attributes+)
+			(push node path-attrib-list-out))
+		       (t
+			(if (consp (cdr node))
+			    (tree-walk (cdr node))))))))
+      (tree-walk path-attrib-list-in)
+
+      (sort path-attrib-list-out    ; list of other PATH-ATTRIB
+	    #'<
+	    :key #'PATH-ATTRIB-get-type-subfield))))
 
 ;; (defun BGP-UPDATE-make-new (4-octet-asn-flag mp-extensions-flag withdrawn-routes path-attributes nlri-list)
 #|

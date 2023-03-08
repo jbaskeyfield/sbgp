@@ -144,8 +144,6 @@
 		   (close value))
 	       peer-mrt-ht))))
 
-(defun mrt-rib-count (filename-in)
-  (let ((rib-table-count
 
 (defun mrt-rib-import (filename-in rib-loc &key (record-count nil) (nlri-cache nil) (set-new-announcement-flag nil) (path-attrib-cache nil) (path-attrib-list-cache nil))
   (let ((*nlri-cache* nlri-cache)
@@ -196,7 +194,7 @@
 				    (incf rib-entry-counter)
 				    (let ((peer-index (MRT-RIB-ENTRY-get-peer-index mrt-rib-entry))
 					  (originated-time (MRT-RIB-ENTRY-get-originated-time mrt-rib-entry))
-					  (bgp-attributes (MRT-RIB-ENTRY-get-bgp-attributes mrt-rib-entry)))
+					  (bgp-attributes (PA-LIST->SBGP-PA-LIST (MRT-RIB-ENTRY-get-bgp-attributes mrt-rib-entry))))
 
 				      (let ((new-rib-entry
 					      (RIB-ENTRY-make (NLRI-get-afisafi nlri)

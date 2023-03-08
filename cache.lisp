@@ -92,7 +92,8 @@ Second value returned indicates the result of lookup:
 				 (t
 				  ;; otherwise this is a KEY-COLLISION: (different objects that hash to same 56-bit values)
 				  ;; increment 'cache-miss-counter' & 'key-collision-counter',
-				  ;; save/clobber (obj-hash . obj) into the slot, and return values obj :key-collision 
+				  ;; save/clobber (obj-hash . obj) into the slot, and return values obj :key-collision
+;;	(format *slot-collisions* "SLOT-COLLISION OBJ: ~S~% SLOT-VALUE: ~S~%" obj slot-value)
 				  (incf (CACHE-get-miss-counter cache))
 				  (incf (CACHE-get-key-collision-counter cache))
 				  (setf (svref (CACHE-get-cache-table cache) cache-table-index)
