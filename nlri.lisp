@@ -62,7 +62,7 @@
 (defun NLRI-get-prefix (obj)             "-> list-u56" (cdddr obj))
 
 (defun NLRI-zhash (octet-offset obj)
-  (zhash-tagged-list '(1 7) octet-offset obj))
+  (zhash-tagged-list '(3 1 7) octet-offset obj))
 
 (defun NLRI-make (afisafi prefix-length prefix)
   "Returns tagged list ('NLRI [AFISAFI] [u8] . [list-u56])"

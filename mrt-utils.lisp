@@ -220,9 +220,114 @@
     (format t "~&mrt-message-counter: ~S~%rib-table-counter: ~S~%rib-entry-counter: ~S~%"
 	    mrt-message-counter rib-table-counter rib-entry-counter)))
 
-  
-  
-  
-  
 
-  ;; -> populate rib-loc with rib-peers
+(defun mrt-extract-path-attribs (filename-in &key (txt-out t txt-out-p) (member-list '(NLRI)) (record-count nil))
+  (let ((*print-pretty* nil)
+	(*print-base* 10)
+	(stream-in (open filename-in :element-type 'unsigned-byte))
+	(stream-out (if txt-out-p
+			(open txt-out :direction :output)
+			t)))
+    (labels ((tree-walk (node)
+	       (if (consp (car node))
+		   (tree-walk (car node)))
+	       (let ((value (car node)))
+		     (cond ((member value member-list)
+			    (print node stream-out))
+			   (t
+			    (if (consp (cdr node))
+				(tree-walk (cdr node))))))))
+    (handler-case
+	(loop for i from 0
+	      until (and record-count (>= i record-count))
+	      do
+	  (let ((mrt-message (MRT-MESSAGE-io-read stream-in)))
+	    (tree-walk mrt-message)))
+      (end-of-file ()
+	(if stream-in (close stream-in))
+	(if txt-out-p (close stream-out)))))))
+	
+			  
+(defun extract-unique-path-attribs (updates-filename-in)
+  (loop for attrib-name in (list 'NLRI 'NLRI-WITHDRAWL 'ORIGIN 'AS-PATH 'NEXT-HOP 'MULTI-EXIT-DISC 'LOCAL-PREF 'ATOMIC-AGGREGATE 'AGGREGATOR 'COMMUNITY 'LARGE-COMMUNITY 'ORIGINATOR-ID 'CLUSTER-LIST 'PATH-ATTRIB-UNKNOWN)
+	do (let* ((filename-out-all (format nil "~A.all.tmp" attrib-name))
+		  (filename-out-uniq (format nil "~A.uniq" attrib-name))
+		  (sort-command (format nil "sort ~A | uniq > ~A" filename-out-all filename-out-uniq))
+		  (remove-command (format nil "rm ~A" filename-out-all)))
+	     
+	     (format t "~%Writing to ~S~%" filename-out-all)
+	     (mrt-extract-path-attribs updates-filename-in
+				       :txt-out filename-out-all
+				       :member-list (list attrib-name))
+	     (format t "~&Running command: ~S~%" sort-command)
+	     (uiop:run-program sort-command)
+
+	     (format t "~&Running command: ~S~%" remove-command)
+	     (uiop:run-program remove-command))))
+
+
+(defun write-4million-ipv4s ()
+  (let ((*print-pretty* nil)
+	(*print-base* 10))
+    (with-open-file (stream-out #p"IPV4.tmp" :direction :output)
+      (loop for i from 0 to (expt 2 22)
+	    do (print (IPV4-make-new (random 4294967296)) stream-out)))
+    (uiop:run-program "sort IPV4.tmp | uniq > IPV4.uniq")
+    (uiop:run-program "rm IPV4.tmp")))
+
+(defun write-4million-ipv6s ()
+  (let ((*print-pretty* nil)
+	(*print-base* 10))
+    (with-open-file (stream-out #p"IPV6.tmp" :direction :output)
+      (loop for i from 0 to (expt 2 22)
+	    do (print (IPV6-make-new (list (random 4294967296) (random 4294967296) (random 4294967296) (random 4294967296)))
+		      stream-out)))
+    (uiop:run-program "sort IPV6.tmp | uniq > IPV6.uniq")
+    (uiop:run-program "rm IPV6.tmp")))
+(defun hash-file (filename-in)
+  "Reads forms from FILENAME-IN. For each form writes (list <zhash> <form> ) to FILENAME-IN.hashed"
+  (let ((*print-pretty* nil)
+	(*print-base* 10))
+    (let* ((filename-out (format nil "~A.hashed" filename-in))
+	   (stream-in (open filename-in))
+	   (stream-out (open filename-out :direction :output)))
+      (handler-case
+	  (loop do
+	    (let ((obj-in (read stream-in)))
+	      (print (list (zhash 0 obj-in) obj-in) stream-out)))
+	(end-of-file ()
+	  (close stream-in)
+	  (close stream-out))))))
+
+(defun hash-uniq-files ()
+  (loop for attrib-name in (list 'IPV4 'IPV6 'NLRI 'NLRI-WITHDRAWL 'ORIGIN 'AS-PATH 'NEXT-HOP 'MULTI-EXIT-DISC 'LOCAL-PREF 'ATOMIC-AGGREGATE 'AGGREGATOR 'COMMUNITY 'LARGE-COMMUNITY 'ORIGINATOR-ID 'CLUSTER-LIST 'PATH-ATTRIB-UNKNOWN)
+	do (let ((input-filename (format nil "~A.uniq" attrib-name)))
+	     (format t "~&Hashing ~A~%" input-filename)
+	     (hash-file input-filename))))
+
+(defun find-duplicate-hashes (filename-in)
+  "Input file is unsorted list of ( <hash> <object> ). Loads records into memory; sorts in hash order; returns any records with duplicate hashes"
+  (let ((records-in nil))
+    (handler-case
+	(progn 
+	(format t "~&Loading...") (force-output)
+	(with-open-file (stream-in filename-in)
+	  (loop do
+	    (push (read stream-in) records-in))))
+      (end-of-file ()
+	(format t "~&Sorting...~%") (force-output)
+	(setf records-in (sort records-in #'< :key #'car))
+	(do ((l0 records-in (cdr l0))
+	     (l1 (cdr records-in) (cdr l1))
+	     (count 0 (1+ count)))
+	    ((or (null l1)
+		 (= (caar l0) (caar l1)))
+	       (list (car l0) (car l1))))))))
+    
+			     
+
+
+
+    
+    
+  
