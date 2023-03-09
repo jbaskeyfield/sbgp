@@ -9,7 +9,6 @@ slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), so
 (defun RIB-PEER-get-ip-address (peer)        "-> IPV4 | IPV6"                  (car (cddddr peer)))
 (defun RIB-PEER-get-peer-asn (peer)          "-> u32"                          (cadr (cddddr peer)))
 
-
 (defun RIB-PEER-make (thread-name internal-external router-id ip-address peer-asn)
   "Link to RIB-PEER object is included in each RIB-ENTRY to indicate source and provide info for best-path selection (iBGP/eBGP, router id, ip address).
 Arguments: thread-name [symbol - name of peer thread], internal-external [symbol - 'INTERNAL|'EXTERNAL], router-id [IPV4], ip-address [IPV4|IPV6]."
@@ -20,20 +19,19 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 	ip-address
 	peer-asn))
 	
-
-(defun RIB-ENTRY-get-name (entry)            "-> symbol"                  (car entry))
-(defun RIB-ENTRY-get-flags (entry)           "-> u56"                     (cadr entry))
-(defmacro RIB-ENTRY-get-flags! (entry)       "-> u56"                     `(cadr ,entry))
-(defun RIB-ENTRY-get-rib-peer (entry)        "-> RIB-PEER"                (caddr entry))
-(defun RIB-ENTRY-get-originated-time (entry) "-> u56"                     (cadddr entry))
-(defun RIB-ENTRY-get-rib-adj-entry (entry) "-> RIB-ADJ-ENTRY"             (cddddr entry))
+;;(defun RIB-ENTRY-get-name (entry)            "-> symbol"                  (car entry))
+(defun RIB-ENTRY-get-flags (entry)           "-> u56"                     (car entry))
+(defmacro RIB-ENTRY-get-flags! (entry)       "-> u56"                     `(car ,entry))
+(defun RIB-ENTRY-get-rib-peer (entry)        "-> RIB-PEER"                (cadr entry))
+(defun RIB-ENTRY-get-originated-time (entry) "-> u56"                     (caddr entry))
+(defun RIB-ENTRY-get-rib-adj-entry (entry)   "-> RIB-ADJ-ENTRY"           (cdddr entry))
 
 (defun RIB-ENTRY-make (afisafi rib-peer rib-adj-entry originated-time flags)
-  (cons 'RIB-ENTRY
+;;  (cons 'RIB-ENTRY
 	(cons (+ afisafi flags)
 	      (cons rib-peer
 		    (cons originated-time
-		          rib-adj-entry)))))
+		          rib-adj-entry))));;)
 
 (defconstant +RIB-ENTRY-flag-new-announcement+  #x01000000)
 (defconstant +RIB-ENTRY-flag-new-withdrawl+     #x02000000)
@@ -64,9 +62,9 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 							    (logandc1 +RIB-ENTRY-flag-new-withdrawl+
 								      (RIB-ENTRY-get-flags rib-entry))))
 
-(defun RIB-ENTRY-TABLE-get-name (rib-entry-table)    "-> symbol"             (car rib-entry-table))
-(defun RIB-ENTRY-TABLE-get-nlri (rib-entry-table)    "-> NLRI"               (cadr rib-entry-table))
-(defun RIB-ENTRY-TABLE-get-entries (rib-entry-table) "-> list of RIB-ENTRY"  (cddr rib-entry-table))
+(defun RIB-ENTRY-TABLE-get-name (rib-entry-table)        "-> symbol"             (car rib-entry-table))
+(defun RIB-ENTRY-TABLE-get-nlri (rib-entry-table)        "-> NLRI"               (cadr rib-entry-table))
+(defun RIB-ENTRY-TABLE-get-entries (rib-entry-table)     "-> list of RIB-ENTRY"  (cddr rib-entry-table))
 (defmacro RIB-ENTRY-TABLE-get-entries! (rib-entry-table) "-> list of RIB-ENTRY"  `(cddr ,rib-entry-table))
 
 
@@ -101,9 +99,8 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
 	   ;; (format t "~%RIB-ENTRY-TABLE-add :replaced-existing-entry~%")
 	   (values (setf (RIB-ENTRY-TABLE-get-entries! rib-entry-table)
 			 (cons rib-entry
-			       ;; TODO: change this to remove-if! once working
 			       (remove-if #'(lambda (x) (eq (RIB-ENTRY-get-rib-peer x)
-							       rib-peer))
+							    rib-peer))
 					  rib-entries-list)))
 		   :replaced-existing-entry))
 	  (t
@@ -112,8 +109,6 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
 			 (cons rib-entry rib-entries-list))
 		   :added-new-entry)))))
 							  
-
-
 (defun RIB-ENTRY-TABLE-valid1-p (rib-entry-table)
   (>= (length rib-entry-table) 2))
 
@@ -128,6 +123,37 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
 (defmacro RIB-LOC-get-table-mask (rib-loc)       "-> u56"       `(svref ,rib-loc 6))
 (defmacro RIB-LOC-get-rib-loc-table (rib-loc)    "-> vector"    `(svref ,rib-loc 7))
 (defmacro RIB-LOC-get-peers (rib-loc)            "-> assoc list [thread-name . RIB-PEER]" `(svref ,rib-loc 8))
+
+(defconstant +RIB-LOC-flag-new-announcements+    #x1)
+(defconstant +RIB-LOC-flag-new-withdrawls+       #x2)
+
+(defun RIB-LOC-new-announcements-flag-set-p (rib-loc)
+  (not (= 0 (logand (RIB-LOC-get-flags rib-loc)
+		    +RIB-LOC-flag-new-announcements+))))
+
+(defun RIB-LOC-set-new-announcements-flag (rib-loc)
+  (setf (RIB-LOC-get-flags rib-loc)
+	(logior +RIB-LOC-flag-new-announcements+
+		(RIB-LOC-get-flags rib-loc))))
+
+(defun RIB-LOC-clear-new-announcements-flag (rib-loc)
+  (setf (RIB-LOC-get-flags rib-loc)
+	(logandc1 +RIB-LOC-flag-new-announcements+
+		  (RIB-LOC-get-flags rib-loc))))
+
+(defun RIB-LOC-new-withdrawls-flag-set-p (rib-loc)
+  (not (= 0 (logand (RIB-LOC-get-flags rib-loc)
+		    +RIB-LOC-flag-new-withdrawls+))))
+
+(defun RIB-LOC-set-new-withdrawls-flag (rib-loc)
+  (setf (RIB-LOC-get-flags rib-loc)
+	(logior +RIB-LOC-flag-new-withdrawls+
+		(RIB-LOC-get-flags rib-loc))))
+
+(defun RIB-LOC-clear-new-withdrawls-flag (rib-loc)
+  (setf (RIB-LOC-get-flags rib-loc)
+	(logandc1 +RIB-LOC-flag-new-withdrawls+
+		  (RIB-LOC-get-flags rib-loc))))
 
 (defun RIB-LOC-make (table-size-num-bits)
   (let ((rib-loc (make-array 9 :initial-element nil))

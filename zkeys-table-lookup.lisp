@@ -79,8 +79,8 @@ lowest n bits of resulting hash is used as index to cache array.
 		 `(simple-vector ,(* +zkeys-num-columns+ +zkeys-num-rows+)))
 	 nil)))
 
-;; TODO: this is only called from zhash-integer. move inline or compiler directive?
 (defun zhash-lookup (octet-offset byte-value)
+  (declare (fixnum octet-offset byte-value))
   #| DEBUG_START
   (format t "(zhash-lookup octet-offset:~A byte-value:~X)" octet-offset byte-value)
   (format t " key index: ~A value: ~A~%"
@@ -89,10 +89,10 @@ lowest n bits of resulting hash is used as index to cache array.
 		      (* +zkeys-num-columns+
 			 (mod octet-offset +zkeys-num-rows+)))))
   DEBUG_END |#
-	  
-  (aref *zkeys-table* (+ byte-value
-		      (* +zkeys-num-columns+
-			 (mod octet-offset +zkeys-num-rows+)))))
+  
+  (svref *zkeys-table* (+ byte-value
+			 (* +zkeys-num-columns+
+			    (mod octet-offset +zkeys-num-rows+)))))
 
 (defun zhash-integer (num-bytes octet-offset x)
   "hashing performed from LSB to MSB across passed integer size 'num-bytes'"

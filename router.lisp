@@ -88,11 +88,8 @@
 	  (originated-time (sb-posix:time)))
 
       ;; TODO rib-adj -> rib-loc filter/update function
-      
-      (setf (RIB-LOC-get-flags rib-loc)
-	    (logior +RIB-ENTRY-flag-new-announcement+
-		    (RIB-LOC-get-flags rib-loc)))
-
+      (RIB-LOC-set-new-announcements-flag rib-loc)
+     
       (dolist (rib-adj-entry rib-adj-entry-list)
 	(RIB-LOC-add-entry RIB-Loc
 			   (RIB-ENTRY-make (NLRI-get-afisafi (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
@@ -106,11 +103,8 @@
 	  (rib-adj-entry-list (MSG-get-arg2 %message)))
 
       ;; TODO rib-adj -> rib-loc filter/update function
+      (RIB-LOC-set-new-withdrawls-flag rib-loc)
       
-      (setf (RIB-LOC-get-flags rib-loc)
-	    (logior +rib-entry-flag-new-withdrawl+
-		    (RIB-LOC-get-flags rib-loc)))
-
       (dolist (rib-adj-entry rib-adj-entry-list)
 	(let ((rib-entry (RIB-LOC-find-rib-entry RIB-Loc
 						 peer-thread-id
@@ -121,8 +115,7 @@
    
    (ROUTER-TIMERS-rib-loc-scan-Timer-Expires
     ;; process announcements
-    (unless (= 0 (logand (RIB-LOC-get-flags rib-loc)
-			 +RIB-ENTRY-flag-new-announcement+))
+    (when (RIB-LOC-new-announcements-flag-set-p rib-loc)
       (format t "~&ENTERING LOOP-END-BLOCK process updates~%")
       (let* ((new-announcements (RIB-LOC-update-collect-entries rib-loc
 							        :test-fn #'RIB-ENTRY-new-announcement-flag-setp
@@ -136,13 +129,10 @@
 	    (loop for peer-thread in peer-threads
 		  do (THREAD-send-message peer-thread
 					  (MSG-make 'ANNOUNCE-RIB-LOC->RIB-ADJ sorted-rib-entries))))))
-      ;; clear new-announcement-flag
-      (setf (RIB-LOC-get-flags rib-loc)
-	    (logandc1 +RIB-ENTRY-flag-new-announcement+
-		      (RIB-LOC-get-flags rib-loc))))
-    
-    (unless (= 0 (logand (RIB-LOC-get-flags rib-loc)
-			 +RIB-ENTRY-flag-new-withdrawl+))
+
+      (RIB-LOC-clear-new-announcements-flag rib-loc))
+
+    (when (RIB-LOC-new-withdrawls-flag-set-p rib-loc)
       ;; process withdrawls
       
       (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
@@ -156,10 +146,9 @@
 	    (loop for peer-thread in peer-threads
 		  do (THREAD-send-message peer-thread
 					  (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ sorted-rib-entries))))))
-      ;; clear new-withdrawl-flag
-      (setf (RIB-LOC-get-flags rib-loc)
-	    (logandc1 +RIB-ENTRY-flag-new-withdrawl+
-		      (RIB-LOC-get-flags rib-loc))))
+
+      (RIB-LOC-clear-new-withdrawls-flag rib-loc))
+
     ;; restart rib-loc-scan-timer
     (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
     

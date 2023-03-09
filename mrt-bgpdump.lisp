@@ -64,18 +64,17 @@ context dependent upon the Type and Subtype fields.
 	subtype                    ; u16
 	length))                   ; u32
 
-(defmacro MRT-COMMON-HEADER-get-name (obj)      "-> symbol"  `(car ,obj))
-(defmacro MRT-COMMON-HEADER-get-timestamp (obj) "-> u32"     `(cadr ,obj))
-(defmacro MRT-COMMON-HEADER-get-type (obj)      "-> u16"     `(caddr ,obj))
-(defmacro MRT-COMMON-HEADER-get-subtype (obj)   "-> u16"     `(cadddr ,obj))
-(defmacro MRT-COMMON-HEADER-get-length (obj)    "-> u32"     `(car (cdddr ,obj)))
+(defun MRT-COMMON-HEADER-get-name (obj)      "-> symbol"  (car obj))
+(defun MRT-COMMON-HEADER-get-timestamp (obj) "-> u32"     (cadr obj))
+(defun MRT-COMMON-HEADER-get-type (obj)      "-> u16"     (caddr obj))
+(defun MRT-COMMON-HEADER-get-subtype (obj)   "-> u16"     (cadddr obj))
+(defun MRT-COMMON-HEADER-get-length (obj)    "-> u32"     (car (cdddr obj)))
 
 (defun MRT-COMMON-HEADER-io-read (port)
-  (list 'MRT-COMMON-HEADER
-	(io-read-uNbe u32 port)    ; u32
-	(io-read-uNbe u16 port)    ; u16
-	(io-read-uNbe u16 port)    ; u16
-	(io-read-uNbe u32 port)))  ; u32
+  (MRT-COMMON-HEADER-make (io-read-uNbe u32 port)    ; u32
+			  (io-read-uNbe u16 port)    ; u16
+			  (io-read-uNbe u16 port)    ; u16
+			  (io-read-uNbe u32 port)))  ; u32
 
 (defun MRT-COMMON-HEADER-io-write (obj port)
   (destructuring-bind (timestamp type subtype length)
@@ -120,12 +119,11 @@ The Extended Timestamp MRT Header is illustrated below.
   (list 'MRT-EXTENDED-TIMESTAMP
 	timestamp))                    ; u32
 
-(defmacro MRT-EXTENDED-TIMESTAMP-get-name (obj)      "-> symbol"  `(car ,obj))
-(defmacro MRT-EXTENDED-TIMESTAMP-get-timestamp (obj) "-> u32" `(cadr ,obj))
+(defun MRT-EXTENDED-TIMESTAMP-get-name (obj)      "-> symbol"  (car obj))
+(defun MRT-EXTENDED-TIMESTAMP-get-timestamp (obj) "-> u32" (cadr obj))
 
 (defun MRT-EXTENDED-TIMESTAMP-io-read (port)
-  (list 'MRT-EXTENDED-TIMESTAMP
-	(io-read-uNbe u32 port)))      ; u32
+  (MRT-EXTENDED-TIMESTAMP-make (io-read-uNbe u32 port)))      ; u32
 
 (defun MRT-EXTENDED-TIMESTAMP-io-write (obj port)
   (destructuring-bind (timestamp)
@@ -259,12 +257,12 @@ the record.
 	peer-ip-address             ; IPV4 | IPV6
 	peer-as))                   ; u16 | u32
 
-(defmacro MRT-PEER-INDEX-TABLE-ENTRY-get-name (obj)            "-> symbol"  `(car ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-ENTRY-get-index-number (obj)    "-> integer"   `(cadr ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-ENTRY-get-peer-type (obj)       "-> u8"        `(caddr ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-ENTRY-get-peer-bgp-id (obj)     "-> IPV4"      `(cadddr ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-ENTRY-get-peer-ip-address (obj) "-> IPV4 | IPV6" `(car (cddddr ,obj)))
-(defmacro MRT-PEER-INDEX-TABLE-ENTRY-get-peer-as (obj)         "-> u16 | u32"   `(cadr (cddddr ,obj)))
+(defun MRT-PEER-INDEX-TABLE-ENTRY-get-name (obj)            "-> symbol"  (car obj))
+(defun MRT-PEER-INDEX-TABLE-ENTRY-get-index-number (obj)    "-> integer"   (cadr obj))
+(defun MRT-PEER-INDEX-TABLE-ENTRY-get-peer-type (obj)       "-> u8"        (caddr obj))
+(defun MRT-PEER-INDEX-TABLE-ENTRY-get-peer-bgp-id (obj)     "-> IPV4"      (cadddr obj))
+(defun MRT-PEER-INDEX-TABLE-ENTRY-get-peer-ip-address (obj) "-> IPV4 | IPV6" (car (cddddr obj)))
+(defun MRT-PEER-INDEX-TABLE-ENTRY-get-peer-as (obj)         "-> u16 | u32"   (cadr (cddddr obj)))
 
 (defun MRT-PEER-INDEX-TABLE-ENTRY-is-4-byte-asn-p (obj)
   (uN-bit-set-p u8 (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-type obj) 6))
@@ -274,7 +272,7 @@ the record.
 
 (defun MRT-PEER-INDEX-TABLE-ENTRY-io-read (index-number port)
   (let ((peer-type (io-read-uNbe u8 port)))
-    (list `MRT-PEER-INDEX-TABLE-ENTRY
+    (MRT-PEER-INDEX-TABLE-ENTRY-make
 	  index-number
 	  peer-type                                 ; u8
 	  (IPV4-io-read port)                       ; IPV4
@@ -309,12 +307,12 @@ the record.
 	peer-count                                   ; u16
 	peer-entries))                               ; list of PEER-INDEX-TABLE-ENTRY
 
-(defmacro MRT-PEER-INDEX-TABLE-get-name (obj)              "-> symbol"                          `(car ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-get-collector-bgp-id (obj)  "-> IPV4"                            `(cadr ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-get-view-name-length (obj)  "-> u16"                             `(caddr ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-get-view-name (obj)         "-> BYTES (view-name-length)"        `(cadddr ,obj))
-(defmacro MRT-PEER-INDEX-TABLE-get-peer-count (obj)        "-> u16"                             `(car (cddddr ,obj)))
-(defmacro MRT-PEER-INDEX-TABLE-get-peer-entries (obj)      "-> list of PEER-INDEX-TABLE-ENTRY"  `(cadr (cddddr ,obj)))
+(defun MRT-PEER-INDEX-TABLE-get-name (obj)              "-> symbol"                          (car obj))
+(defun MRT-PEER-INDEX-TABLE-get-collector-bgp-id (obj)  "-> IPV4"                            (cadr obj))
+(defun MRT-PEER-INDEX-TABLE-get-view-name-length (obj)  "-> u16"                             (caddr obj))
+(defun MRT-PEER-INDEX-TABLE-get-view-name (obj)         "-> BYTES (view-name-length)"        (cadddr obj))
+(defun MRT-PEER-INDEX-TABLE-get-peer-count (obj)        "-> u16"                             (car (cddddr obj)))
+(defun MRT-PEER-INDEX-TABLE-get-peer-entries (obj)      "-> list of PEER-INDEX-TABLE-ENTRY"  (cadr (cddddr obj)))
 
 (defun MRT-PEER-INDEX-TABLE-io-read (port)
   (let* ((collector-bgp-id (IPV4-io-read port))      ; IPV4
@@ -330,12 +328,11 @@ the record.
 			  nil)))
 	     (recurse 0))))
     
-    (list `MRT-PEER-INDEX-TABLE
-	  collector-bgp-id
-	  view-name-length
-	  view-name
-	  peer-count
-	  peer-entries)))
+    (MRT-PEER-INDEX-TABLE-make collector-bgp-id
+			       view-name-length
+			       view-name
+			       peer-count
+			       peer-entries)))
 
 (defun MRT-PEER-INDEX-TABLE-io-write (obj port)
   (destructuring-bind (collector-bgp-id view-name-length view-name peer-count peer-entries)
@@ -389,11 +386,11 @@ the Next Hop Address Length and Next Hop Address fields.
 	attribute-length                ; u16
 	bgp-attributes))                ; list of PATH-ATTRIB
 
-(defmacro MRT-RIB-ENTRY-get-name (obj)              "-> symbol"               `(car ,obj))
-(defmacro MRT-RIB-ENTRY-get-peer-index (obj)        "-> u16"                  `(cadr ,obj))
-(defmacro MRT-RIB-ENTRY-get-originated-time (obj)   "-> u32"                  `(caddr ,obj))
-(defmacro MRT-RIB-ENTRY-get-attribute-length (obj)  "-> u16"                  `(cadddr ,obj))
-(defmacro MRT-RIB-ENTRY-get-bgp-attributes (obj)    "-> list of PATH-ATTRIB"  `(car (cddddr ,obj)))
+(defun MRT-RIB-ENTRY-get-name (obj)              "-> symbol"               (car obj))
+(defun MRT-RIB-ENTRY-get-peer-index (obj)        "-> u16"                  (cadr obj))
+(defun MRT-RIB-ENTRY-get-originated-time (obj)   "-> u32"                  (caddr obj))
+(defun MRT-RIB-ENTRY-get-attribute-length (obj)  "-> u16"                  (cadddr obj))
+(defun MRT-RIB-ENTRY-get-bgp-attributes (obj)    "-> list of PATH-ATTRIB"  (car (cddddr obj)))
 
 (defun MRT-RIB-ENTRY-io-read (port)
   (let* ((peer-index       (io-read-uNbe u16 port))
@@ -402,11 +399,10 @@ the Next Hop Address Length and Next Hop Address fields.
 	 (bgp-attributes   (PATH-ATTRIB-io-read-list attribute-length
 						     t
 						     port)))
-    (list 'MRT-RIB-ENTRY
-	  peer-index
-	  originated-time
-	  attribute-length
-	  bgp-attributes)))
+    (MRT-RIB-ENTRY-make peer-index
+			originated-time
+			attribute-length
+			bgp-attributes)))
 
 (defun MRT-RIB-ENTRY-io-write (obj port)
   (destructuring-bind (peer-index originated-time attribute-length bgp-attributes)
@@ -526,13 +522,13 @@ values SHOULD discard the remainder of the MRT record.
 	entry-count             ; u16
 	rib-entries))           ; list of MRT-RIB-ENTRY
 
-(defmacro MRT-RIB-GENERIC-get-name (obj)             "-> symbol"                 `(car ,obj))
-(defmacro MRT-RIB-GENERIC-get-sequence-number (obj)  "-> u32"                    `(cadr ,obj))
-(defmacro MRT-RIB-GENERIC-get-afi (obj)              "-> u16"                    `(caddr ,obj))
-(defmacro MRT-RIB-GENERIC-get-safi (obj)             "-> u8"                     `(cadddr ,obj))
-(defmacro MRT-RIB-GENERIC-get-nlri (obj)             "-> NLRI"                   `(car (cddddr ,obj)))
-(defmacro MRT-RIB-GENERIC-get-entry-count (obj)      "-> u16"                    `(cadr (cddddr ,obj)))
-(defmacro MRT-RIB-GENERIC-get-rib-entries  (obj)     "-> list of MRT-RIB-ENTRY"  `(caddr (cddddr ,obj)))
+(defun MRT-RIB-GENERIC-get-name (obj)             "-> symbol"                 (car obj))
+(defun MRT-RIB-GENERIC-get-sequence-number (obj)  "-> u32"                    (cadr obj))
+(defun MRT-RIB-GENERIC-get-afi (obj)              "-> u16"                    (caddr obj))
+(defun MRT-RIB-GENERIC-get-safi (obj)             "-> u8"                     (cadddr obj))
+(defun MRT-RIB-GENERIC-get-nlri (obj)             "-> NLRI"                   (car (cddddr obj)))
+(defun MRT-RIB-GENERIC-get-entry-count (obj)      "-> u16"                    (cadr (cddddr obj)))
+(defun MRT-RIB-GENERIC-get-rib-entries  (obj)     "-> list of MRT-RIB-ENTRY"  (caddr (cddddr obj)))
 
 (defun MRT-RIB-GENERIC-io-read (port)
   (let* ((sequence-number  (io-read-uNbe u32 port))
@@ -542,13 +538,12 @@ values SHOULD discard the remainder of the MRT record.
 	 (entry-count      (io-read-uNbe u16 port))
 	 (rib-entries      (loop repeat entry-count
 				 collect (MRT-RIB-ENTRY-io-read port))))
-    (list 'MRT-RIB-GENERIC
-	  sequence-number
-	  afi        
-	  safi       
-	  nlri       
-	  entry-count
-	  rib-entries)))
+    (MRT-RIB-GENERIC-make sequence-number
+			  afi        
+			  safi       
+			  nlri       
+			  entry-count
+			  rib-entries)))
 
 (defun MRT-RIB-GENERIC-io-write (obj port)
   (destructuring-bind (sequence-number afi safi nlri entry-count rib-entries)
@@ -639,15 +634,15 @@ following AFI Types are supported:
 	old-state         ; u16 	  
 	new-state))       ; u16
 
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-name (obj)              "-> symbol"       `(car ,obj))
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-peer-as-number (obj)    "-> u16"          `(cadr ,obj))    
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-local-as-number (obj)   "-> u16"          `(caddr ,obj))
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-interface-index (obj)   "-> u16"          `(cadddr ,obj)) 
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-address-family (obj)    "-> u16"          `(car (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  `(cadr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-local-ip-address (obj)  "-> IPV4 | IPV6"  `(caddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-old-state (obj)         "-> u16"          `(cadddr (cddddr ,obj))) 	  
-(defmacro MRT-BGP4MP-STATE-CHANGE-get-new-state (obj)         "-> u16"          `(car (cddddr (cddddr ,obj))))
+(defun MRT-BGP4MP-STATE-CHANGE-get-name (obj)              "-> symbol"       (car obj))
+(defun MRT-BGP4MP-STATE-CHANGE-get-peer-as-number (obj)    "-> u16"          (cadr obj))    
+(defun MRT-BGP4MP-STATE-CHANGE-get-local-as-number (obj)   "-> u16"          (caddr obj))
+(defun MRT-BGP4MP-STATE-CHANGE-get-interface-index (obj)   "-> u16"          (cadddr obj)) 
+(defun MRT-BGP4MP-STATE-CHANGE-get-address-family (obj)    "-> u16"          (car (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  (cadr (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-get-local-ip-address (obj)  "-> IPV4 | IPV6"  (caddr (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-get-old-state (obj)         "-> u16"          (cadddr (cddddr obj))) 	  
+(defun MRT-BGP4MP-STATE-CHANGE-get-new-state (obj)         "-> u16"          (car (cddddr (cddddr obj))))
 
 (defun MRT-BGP4MP-STATE-CHANGE-io-read (port)
   (let* ((peer-as-number     (io-read-uNbe u16 port))
@@ -663,15 +658,14 @@ following AFI Types are supported:
 	 (old-state          (io-read-uNbe u16 port))
 	 (new-state          (io-read-uNbe u16 port)))
 
-    (list 'MRT-BGP4MP-STATE-CHANGE
-	  peer-as-number     
-	  local-as-number    
-	  interface-index    
-	  address-family     
-	  peer-ip-address    
-	  local-ip-address   
-	  old-state          	  
-	  new-state)))
+    (MRT-BGP4MP-STATE-CHANGE-make peer-as-number     
+				  local-as-number    
+				  interface-index    
+				  address-family     
+				  peer-ip-address    
+				  local-ip-address   
+				  old-state          	  
+				  new-state)))
 
 (defun MRT-BGP4MP-STATE-CHANGE-io-write (obj port)
   (destructuring-bind (peer-as-number local-as-number interface-index address-family peer-ip-address local-ip-address old-state new-state)
@@ -747,14 +741,14 @@ the BGP4MP_MESSAGE Subtype.
 	local-ip-address      ; IPV4 | IPV6
 	bgp-message))         ; BGP-MESSAGE
 
-(defmacro MRT-BGP4MP-MESSAGE-get-name (obj)             "-> symbol"       `(car ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-get-peer-as-number (obj)   "-> u16"          `(cadr ,obj))    
-(defmacro MRT-BGP4MP-MESSAGE-get-local-as-number (obj)  "-> u16"          `(caddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-get-interface-index (obj)  "-> u16"          `(cadddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-get-address-family (obj)   "-> u16"          `(car (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-get-peer-ip-address (obj)  "-> IPV4 | IPV6"  `(cadr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-get-local-ip-address (obj) "-> IPV4 | IPV6"  `(caddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-get-bgp-message (obj)      "-> BGP-MESSAGE"  `(cadddr (cddddr ,obj)))
+(defun MRT-BGP4MP-MESSAGE-get-name (obj)             "-> symbol"       (car obj))
+(defun MRT-BGP4MP-MESSAGE-get-peer-as-number (obj)   "-> u16"          (cadr obj))    
+(defun MRT-BGP4MP-MESSAGE-get-local-as-number (obj)  "-> u16"          (caddr obj))
+(defun MRT-BGP4MP-MESSAGE-get-interface-index (obj)  "-> u16"          (cadddr obj))
+(defun MRT-BGP4MP-MESSAGE-get-address-family (obj)   "-> u16"          (car (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-get-peer-ip-address (obj)  "-> IPV4 | IPV6"  (cadr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-get-local-ip-address (obj) "-> IPV4 | IPV6"  (caddr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-get-bgp-message (obj)      "-> BGP-MESSAGE"  (cadddr (cddddr obj)))
 
 (defun MRT-BGP4MP-MESSAGE-io-read (port)
   (let* ((peer-as-number     (io-read-uNbe u16 port))
@@ -769,14 +763,13 @@ the BGP4MP_MESSAGE Subtype.
 				 (IPV6-io-read port)))
 	 (bgp-message        (BGP-MESSAGE-io-read nil port)))
     
-    (list 'MRT-BGP4MP-MESSAGE
-	  peer-as-number     
-	  local-as-number    
-	  interface-index    
-	  address-family     
-	  peer-ip-address    
-	  local-ip-address 
-	  bgp-message)))
+    (MRT-BGP4MP-MESSAGE-make peer-as-number     
+			     local-as-number    
+			     interface-index    
+			     address-family     
+			     peer-ip-address    
+			     local-ip-address 
+			     bgp-message)))
 
 (defun MRT-BGP4MP-MESSAGE-io-write (obj port)
   (destructuring-bind (peer-as-number local-as-number interface-index address-family peer-ip-address local-ip-address bgp-message)
@@ -833,14 +826,14 @@ Figure 13: BGP4MP_MESSAGE_AS4 Subtype
 	local-ip-address   ; IPV4 | IPV6
 	bgp-message))      ; BGP-MESSAGE
 
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-name (obj)              "-> symbol"  `(car ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-peer-as-number (obj)    "-> u32"          `(cadr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-local-as-number (obj)   "-> u32"          `(caddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-interface-index (obj)   "-> u16"          `(cadddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-address-family (obj)    "-> u16"          `(car (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  `(cadr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-local-ip-address (obj)  "-> IPV4 | IPV6"  `(caddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-get-bgp-message (obj)       "-> BGP-MESSAGE"  `(cadddr (cddddr ,obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-name (obj)              "-> symbol"  (car obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-peer-as-number (obj)    "-> u32"          (cadr obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-local-as-number (obj)   "-> u32"          (caddr obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-interface-index (obj)   "-> u16"          (cadddr obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-address-family (obj)    "-> u16"          (car (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  (cadr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-local-ip-address (obj)  "-> IPV4 | IPV6"  (caddr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-get-bgp-message (obj)       "-> BGP-MESSAGE"  (cadddr (cddddr obj)))
 
 (defun MRT-BGP4MP-MESSAGE-AS4-io-read (port)
   (let* ((peer-as-number     (io-read-uNbe u32 port))
@@ -855,14 +848,13 @@ Figure 13: BGP4MP_MESSAGE_AS4 Subtype
 				 (IPV6-io-read port)))
 	 (bgp-message        (BGP-MESSAGE-io-read t port)))
 
-    (list 'MRT-BGP4MP-MESSAGE-AS4
-	  peer-as-number
-	  local-as-number
-	  interface-index
-	  address-family
-	  peer-ip-address
-	  local-ip-address
-	  bgp-message)))
+    (MRT-BGP4MP-MESSAGE-AS4-make peer-as-number
+				 local-as-number
+				 interface-index
+				 address-family
+				 peer-ip-address
+				 local-ip-address
+				 bgp-message)))
 
 (defun MRT-BGP4MP-MESSAGE-AS4-io-write (obj port)
   (destructuring-bind (peer-as-number local-as-number interface-index address-family peer-ip-address local-ip-address bgp-message)
@@ -922,15 +914,15 @@ Figure 14: BGP4MP_STATE_CHANGE_AS4 Subtype
 	old-state                ; u16
 	new-state))              ; u16
 
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-name (obj)              "-> symbol"  `(car ,obj))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-peer-as-number (obj)    "-> u32"          `(cadr ,obj))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-local-as-number (obj)   "-> u32"          `(caddr ,obj))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-interface-index (obj)   "-> u16"          `(cadddr ,obj))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-address-family (obj)    "-> u16"          `(car (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  `(cadr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-local-ip-address (obj)  "-> IPV4 | IPV6"  `(caddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-old-state (obj)         "-> u16"          `(cadddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-STATE-CHANGE-AS4-get-new-state (obj)         "-> u16"          `(car (cddddr (cddddr ,obj))))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-name (obj)              "-> symbol"  (car obj))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-peer-as-number (obj)    "-> u32"          (cadr obj))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-local-as-number (obj)   "-> u32"          (caddr obj))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-interface-index (obj)   "-> u16"          (cadddr obj))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-address-family (obj)    "-> u16"          (car (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  (cadr (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-local-ip-address (obj)  "-> IPV4 | IPV6"  (caddr (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-old-state (obj)         "-> u16"          (cadddr (cddddr obj)))
+(defun MRT-BGP4MP-STATE-CHANGE-AS4-get-new-state (obj)         "-> u16"          (car (cddddr (cddddr obj))))
 
 (defun MRT-BGP4MP-STATE-CHANGE-AS4-io-read (port)
   (let* ((peer-as-number     (io-read-uNbe u32 port))
@@ -946,15 +938,14 @@ Figure 14: BGP4MP_STATE_CHANGE_AS4 Subtype
 	 (old-state          (io-read-uNbe u16 port))
 	 (new-state          (io-read-uNbe u16 port)))
 
-    (list 'MRT-BGP4MP-STATE-CHANGE-AS4
-	  peer-as-number     
-	  local-as-number    
-	  interface-index    
-	  address-family     
-	  peer-ip-address    
-	  local-ip-address 
-	  old-state
-	  new-state)))
+    (MRT-BGP4MP-STATE-CHANGE-AS4-make peer-as-number     
+				      local-as-number    
+				      interface-index    
+				      address-family     
+				      peer-ip-address    
+				      local-ip-address 
+				      old-state
+				      new-state)))
 
 (defun MRT-BGP4MP-STATE-CHANGE-AS4-io-write (obj port)
   (destructuring-bind (peer-as-number local-as-number interface-index address-family peer-ip-address local-ip-address old-state new-state)
@@ -1010,14 +1001,14 @@ BGP4MP_MESSAGE_AS4 message type.
 	local-ip-address        ; IPV4 | IPV6
 	bgp-message))           ; BGP-MESSAGE
 
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-name (obj)              "-> symbol"       `(car ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-peer-as-number (obj)    "-> u16"          `(cadr ,obj))    
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-local-as-number (obj)   "-> u16"          `(caddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-interface-index (obj)   "-> u16"          `(cadddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-address-family (obj)    "-> u16"          `(car (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  `(cadr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-local-ip-address (obj)  "-> IPV4 | IPV6"  `(caddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-LOCAL-get-bgp-message (obj)       "-> BGP-MESSAGE"  `(cadddr (cddddr ,obj)))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-name (obj)              "-> symbol"       (car obj))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-peer-as-number (obj)    "-> u16"          (cadr obj))    
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-local-as-number (obj)   "-> u16"          (caddr obj))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-interface-index (obj)   "-> u16"          (cadddr obj))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-address-family (obj)    "-> u16"          (car (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  (cadr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-local-ip-address (obj)  "-> IPV4 | IPV6"  (caddr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-LOCAL-get-bgp-message (obj)       "-> BGP-MESSAGE"  (cadddr (cddddr obj)))
 
 (defun  MRT-BGP4MP-MESSAGE-LOCAL-io-read (port)
   (let* ((peer-as-number    (io-read-uNbe u16 port))
@@ -1032,14 +1023,13 @@ BGP4MP_MESSAGE_AS4 message type.
 				 (IPV6-io-read port)))
 	 (bgp-message       (BGP-MESSAGE-io-read nil port)))
     
-    (list 'MRT-BGP4MP-MESSAGE-LOCAL
-	  peer-as-number     
-	  local-as-number    
-	  interface-index    
-	  address-family     
-	  peer-ip-address    
-	  local-ip-address 
-	  bgp-message)))
+    (MRT-BGP4MP-MESSAGE-LOCAL-make peer-as-number     
+				   local-as-number    
+				   interface-index    
+				   address-family     
+				   peer-ip-address    
+				   local-ip-address 
+				   bgp-message)))
 
 (defun MRT-BGP4MP-MESSAGE-LOCAL-io-write (obj port)
   (destructuring-bind (peer-as-number local-as-number interface-index address-family peer-ip-address local-ip-address bgp-message)
@@ -1070,14 +1060,14 @@ BGP4MP_MESSAGE_AS4 message type.
 	local-ip-address        ; IPV4 | IPV6
 	bgp-message))           ; BGP-MESSAGE
 
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-name (obj)              "-> symbol"  `(car ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-peer-as-number (obj)    "-> u32"          `(cadr ,obj))    
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-local-as-number (obj)   "-> u32"          `(caddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-interface-index (obj)   "-> u16"          `(cadddr ,obj))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-address-family (obj)    "-> u16"          `(car (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  `(cadr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-local-ip-address (obj)  "-> IPV4 | IPV6"  `(caddr (cddddr ,obj)))
-(defmacro MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-bgp-message (obj)       "-> BGP-MESSAGE"  `(cadddr (cddddr ,obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-name (obj)              "-> symbol"  (car obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-peer-as-number (obj)    "-> u32"          (cadr obj))    
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-local-as-number (obj)   "-> u32"          (caddr obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-interface-index (obj)   "-> u16"          (cadddr obj))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-address-family (obj)    "-> u16"          (car (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-peer-ip-address (obj)   "-> IPV4 | IPV6"  (cadr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-local-ip-address (obj)  "-> IPV4 | IPV6"  (caddr (cddddr obj)))
+(defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-get-bgp-message (obj)       "-> BGP-MESSAGE"  (cadddr (cddddr obj)))
 
 (defun  MRT-BGP4MP-MESSAGE-AS4-LOCAL-io-read (port)
   (let* ((peer-as-number    (io-read-uNbe u32 port))
@@ -1092,14 +1082,13 @@ BGP4MP_MESSAGE_AS4 message type.
 				 (IPV6-io-read port)))
 	 (bgp-message       (BGP-MESSAGE-io-read t port)))
     
-    (list 'MRT-BGP4MP-MESSAGE-AS4-LOCAL
-	  peer-as-number     
-	  local-as-number    
-	  interface-index    
-	  address-family     
-	  peer-ip-address    
-	  local-ip-address 
-	  bgp-message)))
+    (MRT-BGP4MP-MESSAGE-AS4-LOCAL-make peer-as-number     
+				       local-as-number    
+				       interface-index    
+				       address-family     
+				       peer-ip-address    
+				       local-ip-address 
+				       bgp-message)))
 
 (defun MRT-BGP4MP-MESSAGE-AS4-LOCAL-io-write (obj port)
   (destructuring-bind (peer-as-number local-as-number interface-index address-family peer-ip-address local-ip-address bgp-message)
@@ -1126,10 +1115,10 @@ BGP4MP_MESSAGE_AS4 message type.
 	extended-timestamp ; nil | MRT-EXTENDED-TIMESTAMP
 	message))          ; BYTES | MRT-PEER-INDEX-TABLE | MRT-RIB | MRT-BGPMP-MESSAGE...
 
-(defmacro MRT-MESSAGE-get-name (obj)                "-> symbol"                       `(car ,obj))
-(defmacro MRT-MESSAGE-get-header (obj)              "-> MRT-COMMON-HEADER"            `(cadr ,obj))
-(defmacro MRT-MESSAGE-get-extended-timestamp (obj)  "-> nil | MRT-EXTENDED-TIMESTAMP" `(caddr ,obj))
-(defmacro MRT-MESSAGE-get-message (obj)             "-> MRT-MESSAGE"                  `(cadddr ,obj))
+(defun MRT-MESSAGE-get-name (obj)                "-> symbol"                       (car obj))
+(defun MRT-MESSAGE-get-header (obj)              "-> MRT-COMMON-HEADER"            (cadr obj))
+(defun MRT-MESSAGE-get-extended-timestamp (obj)  "-> nil | MRT-EXTENDED-TIMESTAMP" (caddr obj))
+(defun MRT-MESSAGE-get-message (obj)             "-> MRT-MESSAGE"                  (cadddr obj))
 
 (defun MRT-MESSAGE-io-read (port)
   (let* ((header (MRT-COMMON-HEADER-io-read port))
@@ -1166,10 +1155,10 @@ BGP4MP_MESSAGE_AS4 message type.
 				(7  (MRT-BGP4MP-MESSAGE-AS4-LOCAL-io-read port))        ; BGP4MP_MESSAGE_AS4_LOCAL
 				(t  (BYTES-io-read message-octets port))))
 		    
-		    ((32 33 48 49)  (BYTES-io-read message-octets port))                 ; ISIS ISIS_ET OSPFv3 OSPFv3_ET
+		    ((32 33 48 49)  (BYTES-io-read message-octets port))               ; ISIS ISIS_ET OSPFv3 OSPFv3_ET
 		    (t  (BYTES-io-read message-octets port)))))
 
-    (list 'MRT-MESSAGE header extended-timestamp message)))
+    (MRT-MESSAGE-make header extended-timestamp message)))
 
 (defun MRT-MESSAGE-io-write (obj port)
   (destructuring-bind (header extended-timestamp message)
