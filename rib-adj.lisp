@@ -108,8 +108,8 @@ Returns three values
 			   ;; and entry is NOT EQUAL for pa-list, replace entry in list
 			   (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)
 				 (cons rib-adj-entry
-				       (remove-if #'(lambda (x) (eq x matching-nlri-record))
-						  table-slot-value)))
+				       (remove matching-nlri-record
+					       table-slot-value)))
 			   (values rib-adj-entry :replaced-existing-entry matching-nlri-record))))
 		   (t
 		    ;; 3. otherwise, nlri not found in table-slot-value. RIB-ADJ-ENTRY needs to be pushed to slot list as a new record
@@ -140,10 +140,10 @@ Returns three values
 			   matching-rib-adj-entry)                                          ;   return deleted rib-adj-entry
 			  (t                                                                ;  otherwise, 
 			   (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)   
-				  (remove-if #'(lambda (x) (eq x matching-rib-adj-entry))
-					     table-slot-value))                             ;   remove entry from list
-			    (decf (RIB-ADJ-get-entries-count rib-adj))                      ;   decrement entry count
-			    matching-rib-adj-entry)))                                       ;   return deleted rib-adj-entry
+				 (remove matching-rib-adj-entry
+					 table-slot-value))                                 ;   remove entry from list
+			   (decf (RIB-ADJ-get-entries-count rib-adj))                       ;   decrement entry count
+			   matching-rib-adj-entry)))                                       ;   return deleted rib-adj-entry
 		   
 		   (t                                                                       ; otherwise, entry not found
 		    nil)))))))                                                              ;  return nil.
@@ -174,8 +174,8 @@ Returns RIB-ADJ-ENTRY removed from the table if found. Returns nil if not found.
 			    matching-rib-adj-entry)                                         ;   return deleted rib-adj-entry
 			   (t                                                               ;  otherwise, 
 			    (setf (svref (RIB-ADJ-get-rib-adj-table rib-adj) table-index)   
-				  (remove-if #'(lambda (x) (eq x matching-rib-adj-entry))
-					     table-slot-value))                             ;   remove entry from list
+				  (remove matching-rib-adj-entry
+				          table-slot-value))                                ;   remove entry from list
 			    (decf (RIB-ADJ-get-entries-count rib-adj))                      ;   decrement entry count
 			    matching-rib-adj-entry)))                                       ;   return deleted rib-adj-entry
 		   (t                                                                       ; otherwise, entry not found

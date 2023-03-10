@@ -145,7 +145,7 @@
 	       peer-mrt-ht))))
 
 
-(defun mrt-rib-import (filename-in rib-loc &key (record-count nil) (nlri-cache nil) (set-new-announcement-flag nil) (path-attrib-cache nil) (path-attrib-list-cache nil))
+(defun mrt-rib-import (filename-in rib-loc &key (record-count nil) (nlri-cache nil) (path-attrib-cache nil) (path-attrib-list-cache nil))
   (let ((*nlri-cache* nlri-cache)
 	(*path-attrib-cache* path-attrib-cache)
 	(*path-attrib-list-cache* path-attrib-list-cache)
@@ -195,19 +195,14 @@
 				    (let ((peer-index (MRT-RIB-ENTRY-get-peer-index mrt-rib-entry))
 					  (originated-time (MRT-RIB-ENTRY-get-originated-time mrt-rib-entry))
 					  (bgp-attributes (PA-LIST->SBGP-PA-LIST (MRT-RIB-ENTRY-get-bgp-attributes mrt-rib-entry))))
-
-				      (let ((new-rib-entry
-					      (RIB-ENTRY-make (NLRI-get-afisafi nlri)
-							      (svref peer-array peer-index)
-							      (RIB-ADJ-ENTRY-make nlri
-										  bgp-attributes)
-							      originated-time
-							      (if set-new-announcement-flag
-								  +RIB-ENTRY-flag-new-announcement+
-								  0))))
+				     
 					;; (format t "~%NEW RIB-ENTRY:~%~S~%"  new-rib-entry)
-					(RIB-LOC-add-entry rib-loc new-rib-entry)
-					))))))
+					(RIB-LOC-add-rib-adj-entry rib-loc
+								   (RIB-ADJ-ENTRY-make nlri
+										       bgp-attributes)
+								   (RIB-PEER-get-thread-name (svref peer-array peer-index))
+								   originated-time)
+					)))))
 
 			     (6          ; RIB_GENERIC
 			      )

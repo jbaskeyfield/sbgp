@@ -45,12 +45,11 @@
 	 (setf (getf %all-queues
 		     (THREAD-get-thread-name-symbol new-peer-thread))
 	       (THREAD-get-control-queue new-peer-thread))))
-      (RIB-PEER
+      (RIB-PEER     ;; message sent from peer thread to register itself in the rib-loc, creates entry in the rib-peer table
        (let ((peer-thread-name (MSG-get-arg2 %message))
 	     (rib-peer (MSG-get-arg3 %message)))
 	 (format t "~&SETTING RIB-PEER ~S : ~S~%" peer-thread-name rib-peer)
 	 (RIB-LOC-add-peer rib-loc rib-peer)
-;;	 (push (cons peer-thread-name rib-peer) (RIB-LOC-get-peers rib-loc))
 	 (format t "~&RIB-LOC-get-peers: ~S~%" (RIB-LOC-get-peers rib-loc))))))
    
    (GET
@@ -91,12 +90,7 @@
       (RIB-LOC-set-new-announcements-flag rib-loc)
      
       (dolist (rib-adj-entry rib-adj-entry-list)
-	(RIB-LOC-add-entry RIB-Loc
-			   (RIB-ENTRY-make (NLRI-get-afisafi (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
-					   (RIB-LOC-get-rib-peer rib-loc peer-id)
-					   rib-adj-entry
-					   originated-time
-					   +RIB-ENTRY-flag-new-announcement+)))))
+	(RIB-LOC-add-rib-adj-entry RIB-Loc rib-adj-entry peer-id originated-time)))) 
    
    (WITHDRAWL-RIB-ADJ->RIB-LOC
     (let ((peer-thread-id     (MSG-get-arg1 %message))
@@ -117,36 +111,52 @@
     ;; process announcements
     (when (RIB-LOC-new-announcements-flag-set-p rib-loc)
       (format t "~&ENTERING LOOP-END-BLOCK process updates~%")
-      (let* ((new-announcements (RIB-LOC-update-collect-entries rib-loc
-							        :test-fn #'RIB-ENTRY-new-announcement-flag-setp
-							        :update-fn #'RIB-ENTRY-clear-new-announcement-flag
-							        :collect? t)))
+      ;; collect announcements with best-path flag set, to send to peer threads
+      (let ((new-announcements (RIB-LOC-collect-if #'(lambda (rib-entry)
+							(and (RIB-ENTRY-best-path-flag-setp rib-entry)
+							     (RIB-ENTRY-new-announcement-flag-setp rib-entry)))
+						   rib-loc)))
 	(when new-announcements
+	  ;; sort in path-attribute-list order
 	  (let ((sorted-rib-entries (sort new-announcements
 					  #'list-of-tl-greater-than-p
 					  :key #'(lambda (x)
 						   (RIB-ADJ-ENTRY-get-pa-list (RIB-ENTRY-get-rib-adj-entry x))))))
+	    ;; send list to all peer threads
 	    (loop for peer-thread in peer-threads
 		  do (THREAD-send-message peer-thread
 					  (MSG-make 'ANNOUNCE-RIB-LOC->RIB-ADJ sorted-rib-entries))))))
 
+      ;; clear new-announcement flag on all rib entries
+      (RIB-LOC-update-if #'RIB-ENTRY-new-announcement-flag-setp
+			 #'RIB-ENTRY-clear-new-announcement-flag
+			 rib-loc)
+      ;; clear global new-announcement flag
       (RIB-LOC-clear-new-announcements-flag rib-loc))
 
     (when (RIB-LOC-new-withdrawls-flag-set-p rib-loc)
       ;; process withdrawls
-      
-      (let ((new-withdrawls (RIB-LOC-delete-collect-entries rib-loc
-							    :test-fn #'RIB-ENTRY-new-withdrawl-flag-setp
-							    :collect? t)))
+
+      ;; collect withdrawn routes with best-path flag set, to send to peer threads
+      (let ((new-withdrawls (RIB-LOC-collect-if #'(lambda (rib-entry)
+						    (and (RIB-ENTRY-best-path-flag-setp rib-entry)
+							 (RIB-ENTRY-new-withdrawl-flag-setp rib-entry)))
+						rib-loc)))
 	(when new-withdrawls
+	  ;; sort in path-attribute-list order
 	  (let ((sorted-rib-entries (sort new-withdrawls
 					  #'list-of-tl-greater-than-p
 					  :key #'(lambda (x)
 						   (RIB-ADJ-ENTRY-get-pa-list (RIB-ENTRY-get-rib-adj-entry x))))))
+	    ;; send list to all peer threads
 	    (loop for peer-thread in peer-threads
 		  do (THREAD-send-message peer-thread
 					  (MSG-make 'WITHDRAWL-RIB-LOC->RIB-ADJ sorted-rib-entries))))))
 
+      ;; delete all rib entries with new-withdrawl flag set
+      (RIB-LOC-delete-if #'RIB-ENTRY-new-withdrawl-flag-setp
+			 rib-loc)
+      ;; clear global new-withdrawl flag
       (RIB-LOC-clear-new-withdrawls-flag rib-loc))
 
     ;; restart rib-loc-scan-timer
