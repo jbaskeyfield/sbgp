@@ -196,12 +196,11 @@
 					  (originated-time (MRT-RIB-ENTRY-get-originated-time mrt-rib-entry))
 					  (bgp-attributes (PA-LIST->SBGP-PA-LIST (MRT-RIB-ENTRY-get-bgp-attributes mrt-rib-entry))))
 				     
-					;; (format t "~%NEW RIB-ENTRY:~%~S~%"  new-rib-entry)
-					(RIB-LOC-add-rib-adj-entry rib-loc
-								   (RIB-ADJ-ENTRY-make nlri
-										       bgp-attributes)
-								   (RIB-PEER-get-thread-name (svref peer-array peer-index))
-								   originated-time)
+				      ;; (format t "~%NEW RIB-ENTRY:~%~S~%"  new-rib-entry)
+				      (RIB-LOC-add-rib-adj-entry rib-loc                                    ; rib-loc
+								 (svref peer-array peer-index)              ; rib-peer
+								 originated-time                            ; originated-time
+								 (RIB-ADJ-ENTRY-make nlri bgp-attributes))  ; rib-adj-entry
 					)))))
 
 			     (6          ; RIB_GENERIC

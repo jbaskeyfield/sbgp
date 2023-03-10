@@ -82,21 +82,20 @@
        (setf rib-loc (MSG-get-arg2 %message)))))
    
    (ANNOUNCE-RIB-ADJ->RIB-LOC
-    (let ((peer-id            (MSG-get-arg1 %message))
-	  (rib-adj-entry-list (MSG-get-arg2 %message))
-	  (originated-time (sb-posix:time)))
+    (let* ((peer-thread-name   (MSG-get-arg1 %message))
+	   (rib-adj-entry-list (MSG-get-arg2 %message))
+	   (rib-peer           (RIB-LOC-get-rib-peer rib-loc peer-thread-name))
+	   (originated-time (sb-posix:time)))
 
-      ;; TODO rib-adj -> rib-loc filter/update function
       (RIB-LOC-set-new-announcements-flag rib-loc)
      
       (dolist (rib-adj-entry rib-adj-entry-list)
-	(RIB-LOC-add-rib-adj-entry RIB-Loc rib-adj-entry peer-id originated-time)))) 
+	(RIB-LOC-add-rib-adj-entry RIB-Loc rib-peer originated-time rib-adj-entry)))) 
    
    (WITHDRAWL-RIB-ADJ->RIB-LOC
     (let ((peer-thread-id     (MSG-get-arg1 %message))
 	  (rib-adj-entry-list (MSG-get-arg2 %message)))
 
-      ;; TODO rib-adj -> rib-loc filter/update function
       (RIB-LOC-set-new-withdrawls-flag rib-loc)
       
       (dolist (rib-adj-entry rib-adj-entry-list)

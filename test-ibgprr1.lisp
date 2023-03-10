@@ -35,9 +35,11 @@
 					       :local-asn 65533))
 (tx q1 'set 'peer-config (PEER-CONFIG-make 'ROUTER1-PEER1
 					   :peer-asn 65533
+					   :flags +PEER-CONFIG-flag-rr-client+
 					   :peer-ip-address '(ipv4 #x0a0a0a0a)))
 (tx q1 'set 'peer-config (PEER-CONFIG-make 'ROUTER1-PEER2
 					   :peer-asn 65533
+					   :flags +PEER-CONFIG-flag-rr-client+
 					   :peer-ip-address '(ipv4 #x0a0a0a0b)))
 
 (defparameter router1-rib-loc (RIB-LOC-make 5))
@@ -81,6 +83,7 @@
 					       :local-asn 65533))
 (tx q1 'set 'peer-config (PEER-CONFIG-make 'ROUTER1-PEER1
 					   :peer-asn 65533
+					   :flags +PEER-CONFIG-flag-rr-client+
 					   :peer-ip-address '(ipv4 #x0a0a0a0a)))
 
 (defparameter router1-rib-loc (RIB-LOC-make 5))

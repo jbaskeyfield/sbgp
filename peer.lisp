@@ -1005,7 +1005,7 @@
 			   (MSG-make 'ADD 'RIB-PEER
 				     %this-thread-name
 				     (RIB-PEER-make %this-thread-name
-						    'INTERNAL
+						    (PEER-CONFIG-get-flags peer-config)
 						    (PEER-SESSION-STATE-get-peer-router-id peer-session-state)
 						    (PEER-CONFIG-get-peer-ip-address peer-config)
 						    (PEER-CONFIG-get-peer-asn peer-config))))

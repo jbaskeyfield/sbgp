@@ -2,9 +2,9 @@
 #|
 slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), sorted by RIB-ADJ-ENTRY-get-nlri
 |#
-
+;; This object is a subset of PEER-CONFIG and shares thread-name and peer-config-flags
 (defun RIB-PEER-get-thread-name (peer)       "-> symbol (name of peer thread)" (cadr peer))
-(defun RIB-PEER-get-internal-external (peer) "-> symbol [internal|external]"   (caddr peer))
+(defun RIB-PEER-get-peer-config-flags (peer) "-> u56"                          (caddr peer))
 (defun RIB-PEER-get-router-id (peer)         "-> IPV4"                         (cadddr peer))
 (defun RIB-PEER-get-ip-address (peer)        "-> IPV4 | IPV6"                  (car (cddddr peer)))
 (defun RIB-PEER-get-peer-asn (peer)          "-> u32"                          (cadr (cddddr peer)))
@@ -19,61 +19,68 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 	ip-address
 	peer-asn))
 
-(defun RIB-ENTRY-get-name (entry)            "-> symbol"                  (car entry))
-(defun RIB-ENTRY-get-flags (entry)           "-> u56"                     (cadr entry))
-(defmacro RIB-ENTRY-get-flags! (entry)       "-> u56"                     `(cadr ,entry))
-(defun RIB-ENTRY-get-rib-peer (entry)        "-> RIB-PEER"                (caddr entry))
-(defun RIB-ENTRY-get-originated-time (entry) "-> u56"                     (cadddr entry))
-(defun RIB-ENTRY-get-rib-adj-entry (entry)   "-> RIB-ADJ-ENTRY"           (cddddr entry))
+(defun RIB-ENTRY-get-name (entry)              "-> symbol"                  (car entry))
+(defun RIB-ENTRY-get-flags (entry)             "-> u56"                     (cadr entry))  ;; lower 16 bits coped from PEER-CONFIG-flags (ebgp,rr-client etc.)
+(defmacro RIB-ENTRY-get-flags! (entry)         "-> u56"                     `(cadr ,entry))
+(defun RIB-ENTRY-get-rib-peer (entry)          "-> RIB-PEER"                (caddr entry))
+(defun RIB-ENTRY-get-originated-time (entry)   "-> u56"                     (cadddr entry))
+(defun RIB-ENTRY-get-rib-adj-entry (entry)     "-> RIB-ADJ-ENTRY"           (cddddr entry))
 
-(defun RIB-ENTRY-make (afisafi rib-peer rib-adj-entry originated-time flags)
+(defun RIB-ENTRY-make (flags rib-peer originated-time rib-adj-entry)
   (cons 'RIB-ENTRY
-	(cons (+ afisafi flags)
+	(cons flags
 	      (cons rib-peer
 		    (cons originated-time
 			  rib-adj-entry)))))
 
-(defconstant +RIB-ENTRY-flag-new-announcement+  #x01000000)
-(defconstant +RIB-ENTRY-flag-new-withdrawl+     #x02000000)
-(defconstant +RIB-ENTRY-flag-best-path+         #x20000000)
+(defconstant +RIB-ENTRY-flag-new-announcement+  #x010000)
+(defconstant +RIB-ENTRY-flag-new-withdrawl+     #x020000)
+(defconstant +RIB-ENTRY-flag-ebgp-learnt+       #x040000)
+(defconstant +RIB-ENTRY-flag-best-path+         #x200000)
 
 (defun RIB-ENTRY-get-afisafi (rib-entry) (logand #xffffff (RIB-ENTRY-get-flags rib-entry)))
 
-(defun RIB-ENTRY-new-announcement-flag-setp (rib-entry) (= +RIB-ENTRY-flag-new-announcement+
-							   (logand +RIB-ENTRY-flag-new-announcement+
-								   (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-new-announcement-flag-setp (rib-entry)
+  (= +RIB-ENTRY-flag-new-announcement+ (logand +RIB-ENTRY-flag-new-announcement+
+					       (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-set-new-announcement-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logior +RIB-ENTRY-flag-new-announcement+
+						 (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-clear-new-announcement-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logandc1 +RIB-ENTRY-flag-new-announcement+
+						   (RIB-ENTRY-get-flags rib-entry))))
 
-(defun RIB-ENTRY-set-new-announcement-flag (rib-entry) (setf (RIB-ENTRY-get-flags! rib-entry)
-							     (logior +RIB-ENTRY-flag-new-announcement+
-								     (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-new-withdrawl-flag-setp (rib-entry)
+  (= +RIB-ENTRY-flag-new-withdrawl+ (logand +RIB-ENTRY-flag-new-withdrawl+
+					    (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-set-new-withdrawl-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logior +RIB-ENTRY-flag-new-withdrawl+
+						 (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-clear-new-withdrawl-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logandc1 +RIB-ENTRY-flag-new-withdrawl+
+						   (RIB-ENTRY-get-flags rib-entry))))
 
-(defun RIB-ENTRY-clear-new-announcement-flag (rib-entry) (setf (RIB-ENTRY-get-flags! rib-entry)
-							       (logandc1 +RIB-ENTRY-flag-new-announcement+
-									 (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-ebgp-learnt-flag-setp (rib-entry)
+  (= +RIB-ENTRY-flag-ebgp-learnt+ (logand +RIB-ENTRY-flag-ebgp-learnt+
+					  (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-set-ebgp-learnt-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logior +RIB-ENTRY-flag-ebgp-learnt+
+						 (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-clear-ebgp-learnt-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logandc1 +RIB-ENTRY-flag-ebgp-learnt+
+						   (RIB-ENTRY-get-flags rib-entry))))
 
-(defun RIB-ENTRY-new-withdrawl-flag-setp (rib-entry) (= +RIB-ENTRY-flag-new-withdrawl+
-							(logand +RIB-ENTRY-flag-new-withdrawl+
-								(RIB-ENTRY-get-flags rib-entry))))
 
-(defun RIB-ENTRY-set-new-withdrawl-flag (rib-entry) (setf (RIB-ENTRY-get-flags! rib-entry)
-							  (logior +RIB-ENTRY-flag-new-withdrawl+
-								  (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-best-path-flag-setp (rib-entry)
+  (= +RIB-ENTRY-flag-best-path+ (logand +RIB-ENTRY-flag-best-path+
+					(RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-set-best-path-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logior +RIB-ENTRY-flag-best-path+
+						 (RIB-ENTRY-get-flags rib-entry))))
+(defun RIB-ENTRY-clear-best-path-flag (rib-entry)
+  (setf (RIB-ENTRY-get-flags! rib-entry) (logandc1 +RIB-ENTRY-flag-best-path+
+						   (RIB-ENTRY-get-flags rib-entry))))
 
-(defun RIB-ENTRY-clear-new-withdrawl-flag (rib-entry) (setf (RIB-ENTRY-get-flags! rib-entry)
-							    (logandc1 +RIB-ENTRY-flag-new-withdrawl+
-								      (RIB-ENTRY-get-flags rib-entry))))
-
-(defun RIB-ENTRY-best-path-flag-setp (rib-entry) (= +RIB-ENTRY-flag-best-path+
-						    (logand +RIB-ENTRY-flag-best-path+
-							    (RIB-ENTRY-get-flags rib-entry))))
-
-(defun RIB-ENTRY-set-best-path-flag (rib-entry) (setf (RIB-ENTRY-get-flags! rib-entry)
-						      (logior +RIB-ENTRY-flag-best-path+
-							      (RIB-ENTRY-get-flags rib-entry))))
-
-(defun RIB-ENTRY-clear-best-path-flag (rib-entry) (setf (RIB-ENTRY-get-flags! rib-entry)
-							(logandc1 +RIB-ENTRY-flag-best-path+
-								  (RIB-ENTRY-get-flags rib-entry))))
 
 (defun RIB-ENTRY-best-path (rib-entry1 rib-entry2)
   "Compares two RIB-ENTRY objects and returns 'best' path according to BGP Best Path Selection Algorithm"
@@ -122,29 +129,28 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 	  
 	  (if (< value1 value2) (return-from RIB-ENTRY-best-path rib-entry1))
 	  (if (< value2 value1) (return-from RIB-ENTRY-best-path rib-entry2))))
-
+      
+      ;; Prefer EXTERNAL (EBGP) over INTERNAL (EBGP) (RIB-PEER-get-internal-external peer)
+      (let ((rib-entry1-is-ebgp (RIB-ENTRY-ebgp-learnt-flag-setp rib-entry1))
+	    (rib-entry2-is-ebgp (RIB-ENTRY-ebgp-learnt-flag-setp rib-entry2)))
+	
+	(if (and rib-entry1-is-ebgp
+		 (not rib-entry2-is-ebgp))
+	    (return-from RIB-ENTRY-best-path rib-entry1))
+	(if (and rib-entry2-is-ebgp
+		 (not rib-entry1-is-ebgp))
+	    (return-from RIB-ENTRY-best-path rib-entry2)))
+      
+      ;; Prefer lowest router-id (RIB-PEER-get-router-id peer)
       (let ((rib-peer1 (RIB-ENTRY-get-rib-peer rib-entry1))
 	    (rib-peer2 (RIB-ENTRY-get-rib-peer rib-entry2)))
 	
-	;; Prefer EXTERNAL (EBGP) over INTERNAL (EBGP) (RIB-PEER-get-internal-external peer)
-	(let ((int1 (RIB-PEER-get-internal-external rib-peer1))
-	      (int2 (RIB-PEER-get-internal-external rib-peer2)))
-
-	  (if (and (eq int1 'EXTERNAL)
-		   (eq int2 'INTERNAL))
-	      (return-from RIB-ENTRY-best-path rib-entry1))
-	  (if (and (eq int2 'EXTERNAL)
-		   (eq int1 'INTERNAL))
-	      (return-from RIB-ENTRY-best-path rib-entry2)))
-	      
-	;; Prefer lowest router-id (RIB-PEER-get-router-id peer)
 	(let ((router-id1 (RIB-PEER-get-router-id rib-peer1))
 	      (router-id2 (RIB-PEER-get-router-id rib-peer2)))
 
 	  (if (> (IPV4-get-value router-id1)
 		 (IPV4-get-value router-id2))
 	      (return-from RIB-ENTRY-best-path rib-entry1))
-	  
 	  (if (> (IPV4-get-value router-id2)
 		 (IPV4-get-value router-id1))
 	      (return-from RIB-ENTRY-best-path rib-entry2)))
@@ -354,20 +360,23 @@ Otherwise, RIB-PEER is added to the table, and the passed RIB-PEER is returned"
 	      :test #'eq)
 	nil)))
 
-(defun RIB-LOC-add-rib-adj-entry (rib-loc rib-adj-entry peer-thread-name originated-time)
+(defun RIB-LOC-add-rib-adj-entry (rib-loc rib-peer originated-time rib-adj-entry)
   "Adds passed RIB-ADJ-ENTRY object to the hash table RIB-LOC.
 Rib-entry object (created from  is added to RIB-LOC if the object is not already present in the table (no RIB-ENTRY exists with same NLRI).
 If RIB-ENTRY already exists for this NLRI/PEER-THREAD-NAME, the entry is replaced.
 Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :added-new-table ]"
   
   (let* ((nlri (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
-	 (new-rib-entry (RIB-ENTRY-make (NLRI-get-afisafi nlri)
-					(RIB-LOC-get-rib-peer rib-loc peer-thread-name)
-					rib-adj-entry
-					originated-time
-					+RIB-ENTRY-flag-new-announcement+))
+
+	 (new-rib-entry (RIB-ENTRY-make (+ +RIB-ENTRY-flag-new-announcement+
+					   (RIB-PEER-get-peer-config-flags rib-peer)) ; flags
+			                rib-peer                                      ; rib-peer
+			                originated-time                               ; originated-time
+			                rib-adj-entry))                               ; rib-adj-entry
+
 	 (table-index (logand (NLRI-zhash 0 nlri)
 			      (RIB-LOC-get-table-mask rib-loc)))           
+
 	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
 				  table-index)))
     (cond ((null table-slot-value)
