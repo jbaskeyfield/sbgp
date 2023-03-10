@@ -24,6 +24,12 @@
 (define-symbol-macro +PATH-ATTRIB-partial-bit+         #x2000)
 (define-symbol-macro +PATH-ATTRIB-extended-length-bit+ #x1000)
 
+(defun PATH-ATTRIB-type-subfield-less-than-p (path-attrib1 path-attrib2)
+  "Predicate compares type of two path-attributes. Used for sorting lists of path attributes and passing as predicate to 'insert-in-order'"
+  (< (PATH-ATTRIB-get-type-subfield path-attrib1)
+     (PATH-ATTRIB-get-type-subfield path-attrib2)))
+  
+
 #|
 See path-attrib2.lisp for other PATH-ATTRIB funcions
 

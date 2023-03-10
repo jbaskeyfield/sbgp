@@ -1,4 +1,9 @@
 ;;; internal format for update messages
+;;; functions used by NETIORX/TX threads for thranslating BGP-UPDATE messages into internal SBGP format
+;;; in RX thread BGP-UPDATE->SBGP-UPDATE takes single bgp-update message and if MP-REACH/UNREACH records, extracts NLRI records
+;;; in TX thread SBGP-UPDATE->BGP-UPDATE returns list of one or more RFC4271 formatted bgp-update messages
+;;; if other address family, returns list with NLRIs embedded in MP-REACH records.
+;;; Note: SBGP-UPDATES received from peer thread may have more NLRIs than can be contained in single 4k update message as will be collected by table scan, whereas one SBGP update is sent to peer thread for every update received from network.
 
 (in-package :sbgp)
 
@@ -45,8 +50,7 @@
       (SBGP-UPDATE-make nlri-withdrawl-list       ; list of NLRI-WITHDRAWL
 			nlri-list                 ; list of NLRI
 			(sort path-attrib-list    ; list of other PATH-ATTRIB
-			      #'<
-			      :key #'PATH-ATTRIB-get-type-subfield)))))
+			      #'PATH-ATTRIB-type-subfield-less-than-p)))))
 
 (defun PA-LIST->SBGP-PA-LIST (path-attrib-list-in)
   "Walks tree of PATH-ATTRIB-LIST and returns lists of path attributes in +SBGP-path-attributes+ (excludes MP-REACH/UNREACH)"
@@ -66,7 +70,11 @@
 	    #'<
 	    :key #'PATH-ATTRIB-get-type-subfield))))
 
-;; (defun BGP-UPDATE-make-new (4-octet-asn-flag mp-extensions-flag withdrawn-routes path-attributes nlri-list)
+#|
+(defun SBGP-UPDATE->BGP-UPDATE (4-octet-asn-flag sbgp-update)
+  "Returns list of BGP-UPDATE messages"
+
+  |#
 #|
 (defun SBGP-UPDATE->BGP-UPDATE (4-octet-asn-flag mp-extensions-flag sbgp-update)
   (cond (mp-extensions-flag

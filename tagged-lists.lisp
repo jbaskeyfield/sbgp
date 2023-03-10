@@ -114,7 +114,7 @@ Note: this function isn't suitable for comparing two lists that contain only a s
 
 
 (defun list-of-tl-greater-than-p (tl-list-1 tl-list-2)
-  "Greater than function to be used for sorting lists of path attributes, or rib-entries (keyed by path-attribute). To be passed as predicate to 'sort' function"
+  "Greater than function to be used for sorting lists of path attributes, or rib-entries (keyed by path-attribute). To be passed as predicate to 'sort' function for ordering rib entries with shared path attributes together"
   (cond ((eq tl-list-1 tl-list-2)                               ; run out of elements in both lists, or both lists are identical
 	 nil)
 	((null tl-list-1)                                       ; head of tl-list-2 is same as tl-list-1, but tl-list-2 is longer

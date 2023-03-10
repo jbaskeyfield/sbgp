@@ -49,7 +49,9 @@ values from a BGP Large Community attribute.
 (defun LARGE-COMMUNITY-get-list (obj) "-> list u32" (cdddr obj))
 
 (defun LARGE-COMMUNITY-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2 4) octet-offset obj))
+  (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
+	  (zhash-list u32 (+ 4 octet-offset) (LARGE-COMMUNITY-get-list obj))))
 
 (defun LARGE-COMMUNITY-make (attribute-type attribute-length list-u32)
   (let ((obj (cons 'LARGE-COMMUNITY

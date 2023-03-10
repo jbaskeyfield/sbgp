@@ -1,4 +1,18 @@
 (in-package :sbgp)
+
+(defun insert-in-order (element list-in predicate)
+  "Function takes sorted list LIST-IN (previously sorted by PREDICATE) and returns copy with ELEMENT inserted in ordered position"
+  (labels ((recurse (lst)
+	     (cond ((null lst)
+		    (cons element nil))
+		   ((funcall predicate element (car lst))
+		    (cons element lst))
+		   (t
+		    (cons (car lst) (recurse (cdr lst)))))))
+    (recurse list-in)))
+			  
+  
+
 ;;; destructive version of remove-if and a version of remove-if that works on lists of lists
 
 (defun remove-if! (predicate lst)

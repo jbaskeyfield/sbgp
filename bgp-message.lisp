@@ -60,30 +60,30 @@
 
 (defun BGP-MESSAGE-get-name (obj)     "-> symbol"     (car obj))
 (defun BGP-MESSAGE-get-header (obj)   "-> MSG-HEADER" (cadr obj))
-(defun BGP-MESSAGE-get-message (obj)  "-> [ ERROR-Reserved | BGP-OPEN | BGP-UPDATE | BGP-NOTIFICATION | BGP-KEEPALIVE | BGP-ROUTE-REFRESH | ERROR-Unassigned ]" (caddr obj))
+(defun BGP-MESSAGE-get-message-body (obj)  "-> [ ERROR-Reserved | BGP-OPEN | BGP-UPDATE | BGP-NOTIFICATION | BGP-KEEPALIVE | BGP-ROUTE-REFRESH | ERROR-Unassigned ]" (caddr obj))
 
-(defun BGP-MESSAGE-make (message)
-  "Encapsulates MESSAGE [BGP-OPEN|BGP-UPDATE|...] with message header"
+(defun BGP-MESSAGE-make-new (message-body)
+  "Makes new BGP-MESSAGE. Calculates size of passed MESSAGE-BODY [BGP-OPEN|BGP-UPDATE|...] and adds MSG-HEADER"
   
   (let ((message-type 
-	  (case (BGP-MESSAGE-get-name message)
+	  (case (BGP-MESSAGE-get-name message-body)
 	    (BGP-OPEN          1)
 	    (BGP-UPDATE        2)
 	    (BGP-NOTIFICATION  3)
 	    (BGP-KEEPALIVE     4)
 	    (BGP-ROUTE-REFRESH 5)
-	    (t (error "BGP-MESSAGE-make message = ~S, expected list (BGP-OPEN|BGP-UPDATE|BGP-NOTIFICATION|BGP-KEEPALIVE|BGP-ROUTE-REFRESH..." message))))
+	    (t (error "BGP-MESSAGE-make-new message-body = ~S, expected list (BGP-OPEN|BGP-UPDATE|BGP-NOTIFICATION|BGP-KEEPALIVE|BGP-ROUTE-REFRESH..." message-body))))
 	(message-length
-	  (case (BGP-MESSAGE-get-name message)
-	    (BGP-OPEN     (BGP-OPEN-get-io-rw-octets message))
+	  (case (BGP-MESSAGE-get-name message-body)
+	    (BGP-OPEN     (BGP-OPEN-get-io-rw-octets message-body))
 	    
-	    (BGP-UPDATE   (BGP-UPDATE-get-io-rw-octets message))
+	    (BGP-UPDATE   (BGP-UPDATE-get-io-rw-octets message-body))
 	    (BGP-KEEPALIVE 0)
-	    (t  (error "BGP-MESSAGE-MAKE not implemented type ~S" (BGP-MESSAGE-get-name message))))))
+	    (t  (error "BGP-MESSAGE-make-new not implemented type ~S" (BGP-MESSAGE-get-name message-body))))))
     
     (list 'BGP-MESSAGE
 	  (MSG-HEADER-make message-length message-type)
-	  message)))
+	  message-body)))
 
 (defun BGP-MESSAGE-get-io-rw-octets (obj)
   (MSG-HEADER-get-length (BGP-MESSAGE-get-header obj)))
@@ -122,7 +122,7 @@
   (format port "~_(~W~_~W~_~W)" 
 	  (TL-get-name obj)       ; symbol
 	  (BGP-MESSAGE-get-header obj)     ; MSG-HEADER
-	  (BGP-MESSAGE-get-message obj)))  ; -> [ ERROR-Reserved | BGP-OPEN | BGP-UPDATE | BGP-NOTIFICATION | BGP-KEEPALIVE | BGP-ROUTE-REFRESH | ERROR-Unassigned ]
+	  (BGP-MESSAGE-get-message-body obj)))  ; -> [ ERROR-Reserved | BGP-OPEN | BGP-UPDATE | BGP-NOTIFICATION | BGP-KEEPALIVE | BGP-ROUTE-REFRESH | ERROR-Unassigned ]
 (set-pprint-dispatch '(cons (member BGP-MESSAGE)) #'BGP-MESSAGE-pprint-1 0 *sbgp-pprint-dispatch-table-1*)
 
 (defun BGP-MESSAGE-pprint-2 (port obj &optional colon? atsign?)
@@ -130,7 +130,7 @@
   (format port "~_[~W~_~W~_~W]" 
 	  (TL-get-name obj)       ; symbol
 	  (BGP-MESSAGE-get-header obj)     ; MSG-HEADER
-	  (BGP-MESSAGE-get-message obj)))  ; -> [ ERROR-Reserved | BGP-OPEN | BGP-UPDATE | BGP-NOTIFICATION | BGP-KEEPALIVE | BGP-ROUTE-REFRESH | ERROR-Unassigned ]
+	  (BGP-MESSAGE-get-message-body obj)))  ; -> [ ERROR-Reserved | BGP-OPEN | BGP-UPDATE | BGP-NOTIFICATION | BGP-KEEPALIVE | BGP-ROUTE-REFRESH | ERROR-Unassigned ]
 (set-pprint-dispatch '(cons (member BGP-MESSAGE)) #'BGP-MESSAGE-pprint-2 0 *sbgp-pprint-dispatch-table-2*)
 
 

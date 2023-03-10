@@ -3,7 +3,9 @@
 (defun COMMUNITY-get-value (obj) "-> list u32" (cdddr obj))
 
 (defun COMMUNITY-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2 4) octet-offset obj))
+  (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
+	  (zhash-list u32 (+ 4 octet-offset) (COMMUNITY-get-value obj))))
 
 (defun COMMUNITY-make (attribute-type attribute-length list-u32)
   "Returns tagged list ('COMMUNITY attribute-type attribute-length . list-u32)"

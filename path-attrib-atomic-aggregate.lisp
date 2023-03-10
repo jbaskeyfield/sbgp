@@ -43,7 +43,8 @@ attribute of the route.
 (in-package :sbgp)
 
 (defun ATOMIC-AGGREGATE-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2) octet-offset obj))
+  (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))))
 
 (defun ATOMIC-AGGREGATE-make (attribute-type attribute-length)
   (let ((obj (list 'ATOMIC-AGGREGATE

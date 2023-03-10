@@ -193,7 +193,7 @@ Returns RIB-ADJ-ENTRY removed from the table if found. Returns nil if not found.
 
 ;; TODO. collecting and sending of announce/withdrawls needs to be changed from per entry to processing batch. currently this function has to put single nlri in list
 (defun RIB-ADJ-ENTRY->BGP-UPDATE-MESSAGE (4-octet-asn-flag is-announcement rib-adj-entry)  
-  (BGP-MESSAGE-make (BGP-UPDATE-make-new 4-octet-asn-flag
+  (BGP-MESSAGE-make-new (BGP-UPDATE-make-new 4-octet-asn-flag
 					 (if is-announcement
 					     nil
 					     (list (RIB-ADJ-ENTRY-get-nlri rib-adj-entry)))

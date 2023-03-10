@@ -124,16 +124,27 @@
       (NET-STREAM-OUT          (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name 'NET-STREAM-OUT net-stream-out)))
       (4-OCTET-ASN-FLAG        (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name '4-OCTET-ASN-FLAG 4-octet-asn-flag)))
       (DEBUG-MRT-MESSAGES      (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name 'DEBUG-MRT-MESSAGES debug-mrt-messages)))))
+
+   (SEND-KEEPALIVE
+    (when net-stream-out
+      (BGP-MESSAGE-io-write 4-octet-asn-flag
+			    (BGP-MESSAGE-make-new (BGP-KEEPALIVE-make))
+			    net-stream-out)
+      (force-output net-stream-out)))
+
+   (SEND-OPEN
+    (when net-stream-out
+      (let* ((bgp-open (MSG-get-arg1 %message))
+	     (bgp-message (BGP-MESSAGE-make-new bgp-open)))
+	(BGP-MESSAGE-io-write 4-octet-asn-flag
+			      bgp-message
+			      net-stream-out)
+	(force-output net-stream-out))))
    
    (SEND
     (when net-stream-out
       (let ((bgp-message-out (MSG-get-arg1 %message)))
 	(when debug-mrt-messages (MRT-MESSAGE-io-write bgp-message-out debug-mrt-messages))
 	(BGP-MESSAGE-io-write 4-octet-asn-flag bgp-message-out net-stream-out))))
-   
-   (SEND-IMMEDIATE
-    (when net-stream-out
-      (let ((bgp-message-out (MSG-get-arg1 %message)))
-	(BGP-MESSAGE-io-write 4-octet-asn-flag bgp-message-out net-stream-out)
-	(force-output net-stream-out)))))
+   )
   )

@@ -38,7 +38,9 @@
 (defun MULTI-EXIT-DISC-get-value (obj) "-> u32" (cadddr obj))
 
 (defun MULTI-EXIT-DISC-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2 4) octet-offset obj))
+    (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
+	  (zhash-integer u32 (+ 4 octet-offset) (MULTI-EXIT-DISC-get-value obj))))
 
 (defun MULTI-EXIT-DISC-make (attribute-type attribute-length value)
   (let ((obj (list 'MULTI-EXIT-DISC

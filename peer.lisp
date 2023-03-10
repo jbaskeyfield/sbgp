@@ -170,10 +170,9 @@
 
    ;; sent from router.lisp: (list 'ANNOUNCE-RIB-LOC->RIB-ADJ rib-adj-entries)
    (ANNOUNCE-RIB-LOC->RIB-ADJ
-
     (let* ((rib-entries (MSG-get-arg1 %message))
 	   (rib-adj-entries (loop for rib-entry in rib-entries
-				  when (not (eq %this-thread-name                     ;; TODO rib-loc -> rib-adj filter/update function
+				  when (not (eq %this-thread-name      ;; TODO rib-loc -> rib-adj filter/update function
 					        (RIB-PEER-get-thread-name (RIB-ENTRY-get-rib-peer rib-entry))))
 				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
 
@@ -402,7 +401,7 @@
       
       (OPENCONFIRM
        ;; sends a KEEPALIVE message,
-       (QUEUE-send-message netiotx-queue (MSG-make 'SEND-IMMEDIATE (BGP-MESSAGE-make (BGP-KEEPALIVE-make))))
+       (QUEUE-send-message netiotx-queue (MSG-make 'SEND-KEEPALIVE))
        
        ;; restarts the KeepaliveTimer, and
        (FSM-TIMERS-start-KeepaliveTimer FSM-timers %this-thread-name)
@@ -411,7 +410,7 @@
        )
       (ESTABLISHED
        ;; sends a KEEPALIVE message, and
-       (QUEUE-send-message netiotx-queue (MSG-make 'SEND-IMMEDIATE (BGP-MESSAGE-make (BGP-KEEPALIVE-make))))
+       (QUEUE-send-message netiotx-queue (MSG-make 'SEND-KEEPALIVE))
        
        ;; restarts its KeepaliveTimer, unless the negotiated HoldTime value is zero.
        (unless (= (FSM-TIMERS-get-HoldTime FSM-timers) 0)
@@ -437,12 +436,12 @@
 
        ;; sends the OPEN message to its remote peer,
        (QUEUE-send-message netiotx-queue
-			   (MSG-make 'SEND
-				     (BGP-MESSAGE-make (BGP-OPEN-make (ROUTER-CONFIG-get-local-asn router-config)
-								      (PEER-CONFIG-get-hold-time peer-config)
-								      (ROUTER-CONFIG-get-router-id router-config)
-								      (PEER-CONFIG-get-capability-set peer-config)))))
-       
+			   (MSG-make 'SEND-OPEN
+				     (BGP-OPEN-make (ROUTER-CONFIG-get-local-asn router-config)
+						    (PEER-CONFIG-get-hold-time peer-config)
+						    (ROUTER-CONFIG-get-router-id router-config)
+						    (PEER-CONFIG-get-capability-set peer-config))))
+      
        ;; sets its hold timer to a large value, and
        (FSM-TIMERS-start-HoldTimer-LargeValue FSM-timers %this-thread-name)
        
@@ -539,11 +538,11 @@
 
 	      ;; sends the OPEN message to its peer,
 	      (QUEUE-send-message netiotx-queue
-				  (MSG-make 'SEND
-					    (BGP-MESSAGE-make (BGP-OPEN-make (ROUTER-CONFIG-get-local-asn router-config)
-									     (PEER-CONFIG-get-hold-time peer-config)
-									     (ROUTER-CONFIG-get-router-id router-config)
-									     (PEER-CONFIG-get-capability-set peer-config)))))
+				  (MSG-make 'SEND-OPEN
+					    (BGP-OPEN-make (ROUTER-CONFIG-get-local-asn router-config)
+							   (PEER-CONFIG-get-hold-time peer-config)
+							   (ROUTER-CONFIG-get-router-id router-config)
+							   (PEER-CONFIG-get-capability-set peer-config))))
 	      
 	      ;; sets its HoldTimer to a large value, and
 	      (FSM-TIMERS-start-HoldTimer-LargeValue FSM-timers %this-thread-name)
@@ -689,7 +688,7 @@
        (FSM-TIMERS-stop-ConnectRetryTimer FSM-timers %this-thread-name)
 
        ;; sends a KEEPALIVE message, and
-       (QUEUE-send-message netiotx-queue (MSG-make 'SEND-IMMEDIATE (BGP-MESSAGE-make (BGP-KEEPALIVE-make))))
+       (QUEUE-send-message netiotx-queue (MSG-make 'SEND-KEEPALIVE))
 
 ;;; BGPOpen message processing START ;;;
        ;; Set session state and timers

@@ -31,7 +31,9 @@ information.  Its value SHOULD NOT be changed by any other speaker.
 (defun ORIGIN-get-value (obj) "-> u8" (cadddr obj))
 
 (defun ORIGIN-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2 1) octet-offset obj))
+    (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	    (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
+	    (zhash-integer u8 (+ 4 octet-offset) (ORIGIN-get-value obj))))
 
 (defun ORIGIN-make (attribute-type attribute-length value)
   (let ((obj (list 'ORIGIN

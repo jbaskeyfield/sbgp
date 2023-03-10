@@ -138,3 +138,4 @@ PATH-ATTRIB-get-io-rw-octets (obj)
   (do ((lst list-path-attrib (cdr lst))
        (hash 0 (logxor hash (PATH-ATTRIB-zhash (car lst)))))
       ((null lst) hash)))
+

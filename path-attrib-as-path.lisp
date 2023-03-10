@@ -98,7 +98,11 @@ b) AS_PATH (Type Code 2):
 (defun AS-PATH-get-value (obj)  "-> list [ u16 | u32 ]" (cdr (cddddr obj)))
 
 (defun AS-PATH-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2 1 1 4) octet-offset obj))
+  (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
+	  (zhash-integer u8 (+ 4 octet-offset) (AS-PATH-get-type obj))
+	  (zhash-integer u8 (+ 5 octet-offset) (AS-PATH-get-length obj))
+	  (zhash-list u32 (+ 6 octet-offset) (AS-PATH-get-value obj))))
 
 (defun AS-PATH-make (attribute-type attribute-length as-path-type as-path-length as-path-list)
   (let ((obj (cons 'AS-PATH

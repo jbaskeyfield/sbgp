@@ -33,7 +33,9 @@ receiving speaker, except in the case of BGP Confederations
 (defun LOCAL-PREF-get-value (obj) "-> u32" (cadddr obj))
 
 (defun LOCAL-PREF-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 2 4) octet-offset obj))
+  (logxor (zhash-integer u16 octet-offset (PATH-ATTRIB-get-attribute-type-field obj))
+	  (zhash-integer u16 (+ 2 octet-offset) (PATH-ATTRIB-get-attribute-length obj))
+	  (zhash-integer u32 (+ 4 octet-offset) (LOCAL-PREF-get-value obj))))
 
 (defun LOCAL-PREF-make (attribute-type attribute-length value)
   (let ((obj (list 'LOCAL-PREF

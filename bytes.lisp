@@ -6,7 +6,8 @@
 (defun BYTES-get-value (obj)         "-> list-u56" (cddr obj))
 
 (defun BYTES-zhash (octet-offset obj)
-  (zhash-tagged-list '(2 7) octet-offset obj))
+  (logxor (zhash-integer u16 octet-offset (BYTES-get-length-octets obj))
+	  (zhash-list u56 (+ 2 octet-offset) (BYTES-get-value obj))))
 
 (defun BYTES-make (length-octets list-u56)
   "Returns tagged list ('BYTES [integer] . [list-u56]) "

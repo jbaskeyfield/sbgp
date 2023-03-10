@@ -57,7 +57,7 @@
 				  (when bgp-msg-bin-stream-out
 				    (BGP-MESSAGE-io-write t bgp-message bgp-msg-bin-stream-out))
 				;;; bgp-message at this point has header, strip off header
-				  (let ((bgp-message (BGP-MESSAGE-get-message bgp-message)))
+				  (let ((bgp-message (BGP-MESSAGE-get-message-body bgp-message)))
 				    (case (TL-get-name bgp-message)
 				      (BGP-OPEN
 				       (incf bgp-open-counter))
