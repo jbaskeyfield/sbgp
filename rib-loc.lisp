@@ -2,34 +2,19 @@
 #|
 slot elements = list of RIB-ENTRY ('RIB-ENTRY flags peer-id . RIB-ADJ-ENTRY), sorted by RIB-ADJ-ENTRY-get-nlri
 |#
-;; This object is a subset of PEER-CONFIG and shares thread-name and peer-config-flags
-(defun RIB-PEER-get-thread-name (peer)       "-> symbol (name of peer thread)" (cadr peer))
-(defun RIB-PEER-get-peer-config-flags (peer) "-> u56"                          (caddr peer))
-(defun RIB-PEER-get-router-id (peer)         "-> IPV4"                         (cadddr peer))
-(defun RIB-PEER-get-ip-address (peer)        "-> IPV4 | IPV6"                  (car (cddddr peer)))
-(defun RIB-PEER-get-peer-asn (peer)          "-> u32"                          (cadr (cddddr peer)))
 
-(defun RIB-PEER-make (thread-name internal-external router-id ip-address peer-asn)
-  "Link to RIB-PEER object is included in each RIB-ENTRY to indicate source and provide info for best-path selection (iBGP/eBGP, router id, ip address).
-Arguments: thread-name [symbol - name of peer thread], internal-external [symbol - 'INTERNAL|'EXTERNAL], router-id [IPV4], ip-address [IPV4|IPV6]."
-  (list 'RIB-PEER
-	thread-name
-	internal-external
-	router-id
-	ip-address
-	peer-asn))
 
-(defun RIB-ENTRY-get-name (entry)              "-> symbol"                  (car entry))
-(defun RIB-ENTRY-get-flags (entry)             "-> u56"                     (cadr entry))  ;; lower 16 bits coped from PEER-CONFIG-flags (ebgp,rr-client etc.)
-(defmacro RIB-ENTRY-get-flags! (entry)         "-> u56"                     `(cadr ,entry))
-(defun RIB-ENTRY-get-rib-peer (entry)          "-> RIB-PEER"                (caddr entry))
-(defun RIB-ENTRY-get-originated-time (entry)   "-> u56"                     (cadddr entry))
-(defun RIB-ENTRY-get-rib-adj-entry (entry)     "-> RIB-ADJ-ENTRY"           (cddddr entry))
+(defun RIB-ENTRY-get-name (entry)             "-> symbol"        (car entry))
+(defun RIB-ENTRY-get-flags (entry)            "-> u56"           (cadr entry))  ;; lower 16 bits coped from PEER-CONFIG-flags (ebgp,rr-client etc.)
+(defmacro RIB-ENTRY-get-flags! (entry)        "-> u56"           `(cadr ,entry))
+(defun RIB-ENTRY-get-peer-config (entry)      "-> PEER-CONFIG"   (caddr entry))
+(defun RIB-ENTRY-get-originated-time (entry)  "-> u56"           (cadddr entry))
+(defun RIB-ENTRY-get-rib-adj-entry (entry)    "-> RIB-ADJ-ENTRY" (cddddr entry))
 
-(defun RIB-ENTRY-make (flags rib-peer originated-time rib-adj-entry)
+(defun RIB-ENTRY-make (flags peer-config originated-time rib-adj-entry)
   (cons 'RIB-ENTRY
 	(cons flags
-	      (cons rib-peer
+	      (cons peer-config
 		    (cons originated-time
 			  rib-adj-entry)))))
 
@@ -130,7 +115,7 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 	  (if (< value1 value2) (return-from RIB-ENTRY-best-path rib-entry1))
 	  (if (< value2 value1) (return-from RIB-ENTRY-best-path rib-entry2))))
       
-      ;; Prefer EXTERNAL (EBGP) over INTERNAL (EBGP) (RIB-PEER-get-internal-external peer)
+      ;; Prefer eBGP over iBGP learnt routes
       (let ((rib-entry1-is-ebgp (RIB-ENTRY-ebgp-learnt-flag-setp rib-entry1))
 	    (rib-entry2-is-ebgp (RIB-ENTRY-ebgp-learnt-flag-setp rib-entry2)))
 	
@@ -141,12 +126,12 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 		 (not rib-entry1-is-ebgp))
 	    (return-from RIB-ENTRY-best-path rib-entry2)))
       
-      ;; Prefer lowest router-id (RIB-PEER-get-router-id peer)
-      (let ((rib-peer1 (RIB-ENTRY-get-rib-peer rib-entry1))
-	    (rib-peer2 (RIB-ENTRY-get-rib-peer rib-entry2)))
+      ;; Prefer lowest router-id (PEER-CONFIG-get-router-id peer)
+      (let ((peer-config1 (RIB-ENTRY-get-peer-config rib-entry1))
+	    (peer-config2 (RIB-ENTRY-get-peer-config rib-entry2)))
 	
-	(let ((router-id1 (RIB-PEER-get-router-id rib-peer1))
-	      (router-id2 (RIB-PEER-get-router-id rib-peer2)))
+	(let ((router-id1 (PEER-CONFIG-get-peer-router-id peer-config1))
+	      (router-id2 (PEER-CONFIG-get-peer-router-id peer-config2)))
 
 	  (if (> (IPV4-get-value router-id1)
 		 (IPV4-get-value router-id2))
@@ -168,9 +153,9 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 	    (if (< len1 len2) (return-from RIB-ENTRY-best-path rib-entry1))
 	    (if (< len2 len1) (return-from RIB-ENTRY-best-path rib-entry2))))
 
-	;; Prefer the peer with lowest IP address (RIB-PEER-get-ip-address peer)
-	(let ((ip-addr1 (RIB-PEER-get-ip-address rib-peer1))
-	      (ip-addr2 (RIB-PEER-get-ip-address rib-peer2)))
+	;; Prefer the peer with lowest IP address (PEER-CONFIG-get-ip-address peer)
+	(let ((ip-addr1 (PEER-CONFIG-get-peer-ip-address peer-config1))
+	      (ip-addr2 (PEER-CONFIG-get-peer-ip-address peer-config2)))
 
 	  (if (TL-greater-than-p ip-addr1 ip-addr2)
 	      rib-entry2
@@ -208,11 +193,11 @@ Arguments: thread-name [symbol - name of peer thread], internal-external [symbol
 If existing entry exists with matching rib-peer value, entry is replaced.
 If existing entry is not found, entry is prepended to 'entries' list.
 Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
-  (let* ((rib-peer (RIB-ENTRY-get-rib-peer rib-entry))
+  (let* ((rib-peer (RIB-ENTRY-get-peer-config rib-entry))
 	 (rib-entries-list (RIB-ENTRY-TABLE-get-entries rib-entry-table))
 	 (existing-entry (find rib-peer
 			       rib-entries-list
-			       :key #'RIB-ENTRY-get-rib-peer
+			       :key #'RIB-ENTRY-get-peer-config
 			       :test #'eq)))
     
     ;;(format t "~&RIB-PEER: ~S~%RIB-ENTRIES-LIST: ~S~%EXISTING-ENTRY: ~S"
@@ -254,8 +239,8 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
 (defmacro RIB-LOC-get-empty-slot-count (rib-loc) "-> integer"   `(svref ,rib-loc 4))
 (defmacro RIB-LOC-get-entry-count (rib-loc)      "-> integer"   `(svref ,rib-loc 5))
 (defmacro RIB-LOC-get-table-mask (rib-loc)       "-> u56"       `(svref ,rib-loc 6))
-(defmacro RIB-LOC-get-rib-loc-table (rib-loc)    "-> vector"    `(svref ,rib-loc 7))
-(defmacro RIB-LOC-get-peers (rib-loc)            "-> assoc list [thread-name . RIB-PEER]" `(svref ,rib-loc 8))
+(defmacro RIB-LOC-get-table (rib-loc)            "-> vector"    `(svref ,rib-loc 7))
+(defmacro RIB-LOC-get-peer-configs (rib-loc)     "-> assoc list [thread-name . PEER-CONFIG]" `(svref ,rib-loc 8))
 
 (defconstant +RIB-LOC-flag-new-announcements+    #x1)
 (defconstant +RIB-LOC-flag-new-withdrawls+       #x2)
@@ -299,8 +284,8 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
     (setf (RIB-LOC-get-empty-slot-count rib-loc)        table-size)
     (setf (RIB-LOC-get-entry-count rib-loc)             0)
     (setf (RIB-LOC-get-table-mask rib-loc)              (1- table-size))     
-    (setf (RIB-LOC-get-rib-loc-table rib-loc)           (make-array table-size :initial-element nil))
-    (setf (RIB-LOC-get-peers rib-loc)                   nil)
+    (setf (RIB-LOC-get-table rib-loc)                   (make-array table-size :initial-element nil))
+    (setf (RIB-LOC-get-peer-configs rib-loc)            nil)
 
     rib-loc))
 
@@ -311,56 +296,56 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry ]"
 
 (defun RIB-LOC-clear (rib-loc)
   (setf (RIB-LOC-get-empty-slot-count rib-loc)        (RIB-LOC-get-table-size rib-loc))
-  (setf (RIB-LOC-get-entry-count rib-loc)              0)
-  (fill (RIB-LOC-get-rib-loc-table rib-loc)           nil))
+  (setf (RIB-LOC-get-entry-count rib-loc)             0)
+  (fill (RIB-LOC-get-table rib-loc)                   nil))
 
-;;; Add, remove & find RIB-PEER entries in RIB-LOC's peer table
-(defun RIB-LOC-add-peer (rib-loc rib-peer)
-  "Adds RIB-PEER to RIB-LOC's list of peers. 
-If 'EQUAL copy of RIB-PEER already exists in the table, returns the copy from the RIB-LOC table.
-Otherwise, RIB-PEER is added to the table, and the passed RIB-PEER is returned"
-  (let* ((peer-thread-name (RIB-PEER-get-thread-name rib-peer))
-	 (current-peer-entry (cdr (assoc peer-thread-name (RIB-LOC-get-peers rib-loc)))))
-    (if current-peer-entry
-	;; only replace existing entry if configuration has changed (to allow multiple reloading of mrt rib files into rib-loc - ensures rib-peer objects 'EQ between file loads)
-	(cond  ((not (equal current-peer-entry rib-peer))
+;;; Add, remove & find PEER-CONFIG entries in RIB-LOC's peer-configs table
+(defun RIB-LOC-add-peer-config (rib-loc peer-config)
+  "Adds PEER-CONFIG to RIB-LOC's list of peer-configs. 
+If 'EQUAL copy of PEER-CONFIG already exists in the table, returns the copy from the peer-configs table.
+Otherwise, PEER-CONFIGS is added to the table, and the passed PEER-CONFIG is returned"
+  (let* ((thread-name (PEER-CONFIG-get-thread-name peer-config))
+	 (current-config-entry (cdr (assoc thread-name (RIB-LOC-get-peer-configs rib-loc)))))
+    (if current-config-entry
+	;; only replace existing entry if configuration has changed (to allow multiple reloading of mrt rib files into rib-loc - ensures rib-peer objects is 'EQ between file loads)
+	(cond  ((not (equal current-config-entry peer-config))
 		;;(format t "~%REPLACING EXISTING RIB-PEER ENTRY~%")
-		(setf (cdr (assoc peer-thread-name (RIB-LOC-get-peers rib-loc)))
-		      rib-peer))
+		(setf (cdr (assoc thread-name (RIB-LOC-get-peer-configs rib-loc)))
+		      peer-config))
 	       (t
 		;;(format t "~%NOT REPLACING EXISTING RIB-PEER ENTRY~%")
-		current-peer-entry))
-	(push (cons peer-thread-name rib-peer)
-	      (RIB-LOC-get-peers rib-loc)))))
+		current-config-entry))
+	(push (cons thread-name peer-config)
+	      (RIB-LOC-get-peer-configs rib-loc)))))
 
-(defun RIB-LOC-get-rib-peer (rib-loc peer-thread-name)
-  "Returns RIB-PEER object with name PEER-THREAD-NAME"
-  (cdr (assoc peer-thread-name (RIB-LOC-get-peers rib-loc))))
+(defun RIB-LOC-get-peer-config (rib-loc thread-name)
+  "Returns RIB-PEER object with name THREAD-NAME"
+  (cdr (assoc thread-name (RIB-LOC-get-peer-configs rib-loc))))
 
 (defun RIB-LOC-find-rib-entry-table (rib-loc nlri)
   "Returns RIB-ENTRY-TABLE object if it exists in RIB-LOC matching passed NLRI. Otherwise, returns NIL."
   (let* ((table-index (logand (NLRI-zhash 0 nlri)                       
 			      (RIB-LOC-get-table-mask rib-loc)))
-	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
+	 (table-slot-value (svref (RIB-LOC-get-table rib-loc) 
 				  table-index)))
     (find nlri
 	  table-slot-value
 	  :key #'RIB-ENTRY-TABLE-get-nlri
 	  :test #'equal)))
 
-(defun RIB-LOC-find-rib-entry (rib-loc peer-thread-id rib-adj-entry)
+(defun RIB-LOC-find-rib-entry (rib-loc thread-name rib-adj-entry)
   "Returns RIB-ENTRY object from RIB-LOC table if it matches PEER-ID and RIB-ADJ-ENTRY"
   (let ((rib-entry-table (RIB-LOC-find-rib-entry-table RIB-Loc         ; find if RIB-ENTRY-TABLE exists for this NLRI
 						       (RIB-ADJ-ENTRY-get-nlri rib-adj-entry)))
-	(rib-peer (RIB-LOC-get-rib-peer rib-loc peer-thread-id)))
+	(rib-peer (RIB-LOC-get-peer-config rib-loc thread-name)))
     (if (and rib-entry-table rib-peer)
 	(find rib-peer
 	      (RIB-ENTRY-TABLE-get-entries rib-entry-table)
-	      :key #'RIB-ENTRY-get-rib-peer
+	      :key #'RIB-ENTRY-get-peer-config
 	      :test #'eq)
 	nil)))
 
-(defun RIB-LOC-add-rib-adj-entry (rib-loc rib-peer originated-time rib-adj-entry)
+(defun RIB-LOC-add-rib-adj-entry (rib-loc peer-config originated-time rib-adj-entry)
   "Adds passed RIB-ADJ-ENTRY object to the hash table RIB-LOC.
 Rib-entry object (created from  is added to RIB-LOC if the object is not already present in the table (no RIB-ENTRY exists with same NLRI).
 If RIB-ENTRY already exists for this NLRI/PEER-THREAD-NAME, the entry is replaced.
@@ -369,21 +354,21 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :a
   (let* ((nlri (RIB-ADJ-ENTRY-get-nlri rib-adj-entry))
 
 	 (new-rib-entry (RIB-ENTRY-make (+ +RIB-ENTRY-flag-new-announcement+
-					   (RIB-PEER-get-peer-config-flags rib-peer)) ; flags
-			                rib-peer                                      ; rib-peer
-			                originated-time                               ; originated-time
-			                rib-adj-entry))                               ; rib-adj-entry
+					   (PEER-CONFIG-get-flags peer-config))   ; flags
+			                peer-config                               ; rib-peer
+			                originated-time                           ; originated-time
+			                rib-adj-entry))                           ; rib-adj-entry
 
 	 (table-index (logand (NLRI-zhash 0 nlri)
 			      (RIB-LOC-get-table-mask rib-loc)))           
 
-	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
+	 (table-slot-value (svref (RIB-LOC-get-table rib-loc) 
 				  table-index)))
     (cond ((null table-slot-value)
 	   ;; slot is empty. push a new RIB-ENTRY-TABLE onto table-slot-value,
 	   ;; decrement empty-slot-count, and return
 	   (push (RIB-ENTRY-TABLE-make nlri new-rib-entry)
-		 (svref (RIB-LOC-get-rib-loc-table rib-loc) table-index))
+		 (svref (RIB-LOC-get-table rib-loc) table-index))
 	   (incf (RIB-LOC-get-entry-count rib-loc))
 	   (decf (RIB-LOC-get-empty-slot-count rib-loc))
 	   ;; (format t "~&NEW RIB-ENTRY-TABLE ADDED TO EMPTY SLOT~%")
@@ -402,13 +387,13 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :a
 		   (t
 		    ;;(format t "~&NEW RIB-ENTRY-TABLE ADDED TO OCCUPIED SLOT~%")
 		    (push (RIB-ENTRY-TABLE-make nlri new-rib-entry)
-			  (svref (RIB-LOC-get-rib-loc-table rib-loc) table-index))
+			  (svref (RIB-LOC-get-table rib-loc) table-index))
 		    (values new-rib-entry :added-new-table))))))))
 
-(defun RIB-LOC-delete-entry (rib-loc nlri peer-thread-name)
+(defun RIB-LOC-delete-entry (rib-loc nlri thread-name)
   (let* ((table-index (logand (NLRI-zhash 0 nlri)
 			     (RIB-LOC-get-table-mask rib-loc)))           
-	 (table-slot-value (svref (RIB-LOC-get-rib-loc-table rib-loc) 
+	 (table-slot-value (svref (RIB-LOC-get-table rib-loc) 
 				 table-index)))
     (when table-slot-value
       (let ((rib-entry-table (find nlri
@@ -416,14 +401,14 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :a
 				   :key #'RIB-ENTRY-TABLE-get-nlri
 				   :test #'equal)))
 	(when rib-entry-table
-	  (let ((rib-peer (RIB-LOC-get-rib-peer rib-loc peer-thread-name)))
+	  (let ((rib-peer (RIB-LOC-get-peer-config rib-loc thread-name)))
 	     (RIB-ENTRY-TABLE-delete-entry rib-entry-table rib-peer)))))))		
 
 
 (defun RIB-LOC-collect-if (predicate rib-loc)
   "Collect and return list of RIB-ENTRY from RIB-LOC table for which PREDICATE returns true."
   (let ((rtn-rib-entries nil))
-    (loop for slot across (RIB-LOC-get-rib-loc-table rib-loc)
+    (loop for slot across (RIB-LOC-get-table rib-loc)
 	  when slot
 	    do (loop for rib-entry-table in slot
 		     do (loop for rib-entry in (RIB-ENTRY-TABLE-get-entries rib-entry-table)
@@ -435,7 +420,7 @@ Returns two values: RIB-ENTRY [ :replaced-existing-entry | :added-new-entry | :a
   "Iterates over all rib-entries in RIB-LOC. Applies UPDATE-FN to entry if PREDICATE returns true.
 Returns integer - number of rib entries updated."
   (let ((update-count 0))
-    (loop for slot across (RIB-LOC-get-rib-loc-table rib-loc)
+    (loop for slot across (RIB-LOC-get-table rib-loc)
 	  when slot
 	    do (loop for rib-entry-table in slot
 		     do (loop for rib-entry in (RIB-ENTRY-TABLE-get-entries rib-entry-table)
@@ -450,7 +435,7 @@ Returns integer - number of rib entries updated."
 Returns integer - number of rib entries deleted."
   ;; first pass across table collects entries
   (let ((delete-count 0))
-    (loop for slot across (RIB-LOC-get-rib-loc-table rib-loc)
+    (loop for slot across (RIB-LOC-get-table rib-loc)
 	  do (loop for rib-entry-table in slot
 		   do (multiple-value-bind (updated-rib-entry-table remove-count)
 			  (remove-if! predicate (RIB-ENTRY-TABLE-get-entries rib-entry-table))

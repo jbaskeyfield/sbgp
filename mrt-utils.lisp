@@ -76,7 +76,7 @@
 				       (incf unknown-message-counter))))))
 			       (t (incf unknown-message-counter)))))))
 	  (signal 'end-of-file))
-	  
+      
       (end-of-file ()
 	(format t "~&End-of-file~%")
 	(if stream-in (close stream-in))
@@ -91,8 +91,8 @@
 	(if bgp-msg-bin-stream-out
 	    (close bgp-msg-bin-stream-out))
 	(if (and sbgp-update-txt-stream-out
-		   (not (eq sbgp-update-txt-stream-out t)))
-	      (close sbgp-update-txt-stream-out))
+		 (not (eq sbgp-update-txt-stream-out t)))
+	    (close sbgp-update-txt-stream-out))
 	
 	(format t "~&~S mrt-messages~%~S bgp-messages~%~S bgp-open-counter~%~S bgp-update-counter~%~S bgp-notification-counter~%~S bgp-keepalive-counter~%~S bgp-route-refresh-counter~%~S unknown-message-counter~%" mrt-msg-counter bgp-msg-counter bgp-open-counter bgp-update-counter bgp-notification-counter bgp-keepalive-counter bgp-route-refresh-counter unknown-message-counter)
 	))))
@@ -164,17 +164,16 @@
 	    ;; (format t "~&peer-entries:~%~S~%" mrt-peer-entries)
 	    (dolist (mrt-peer-entry mrt-peer-entries)
 	      
-	      (let ((rib-peer (RIB-PEER-make (intern (format nil "MRT-PEER-~D" (MRT-PEER-INDEX-TABLE-ENTRY-get-index-number mrt-peer-entry)))
-					     'EXTERNAL
-					     (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-bgp-id mrt-peer-entry)
-					     (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-ip-address mrt-peer-entry)
-					     (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-as mrt-peer-entry))))
-		;; (format t "~&Adding peer: ~S~%" rib-peer)
+	      (let ((peer-config (PEER-CONFIG-make (intern (format nil "MRT-PEER-~D" (MRT-PEER-INDEX-TABLE-ENTRY-get-index-number mrt-peer-entry)))
+						   :flags +PEER-CONFIG-flag-ebgp+
+						   :peer-ip-address (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-ip-address mrt-peer-entry)
+						   :peer-router-id (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-bgp-id mrt-peer-entry)
+						   :peer-asn (MRT-PEER-INDEX-TABLE-ENTRY-get-peer-as mrt-peer-entry))))
 
-	        (RIB-LOC-add-peer rib-loc rib-peer)
+	        (RIB-LOC-add-peer-config rib-loc peer-config)
 		(setf (svref peer-array (MRT-PEER-INDEX-TABLE-ENTRY-get-index-number mrt-peer-entry))
-		      (RIB-LOC-get-rib-peer rib-loc
-					    (RIB-PEER-get-thread-name rib-peer)))))
+		      (RIB-LOC-get-peer-config rib-loc
+					       (PEER-CONFIG-get-thread-name peer-config)))))
 
 	    (loop for i from 0
 		  until (and record-count (>= i record-count))

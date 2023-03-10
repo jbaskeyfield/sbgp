@@ -3,7 +3,7 @@
 ;;; ROUTER thread
 ;;; contains RIB-Loc
 ;;; control connection back to main thread
-;;; child connection to PEER(s) and TCPSERVER
+;;; child connection DEFINE-T-THREAD-LOOP-FUNCTION ROUTER to PEER(s) and TCPSERVER
 
 (define-T-THREAD-LOOP-FUNCTION ROUTER
   :let-env-vars
@@ -14,7 +14,7 @@
    (*nlri-cache* nil)
    
    (router-config nil)
-   (peer-configs nil)   ;; plist of <thread-name> PEER-CONFIG
+   
    (router-timers (ROUTER-TIMERS-make-default))
    (*debug-router-timers* *debug-router-timers*))
 
@@ -44,21 +44,20 @@
 	 (push new-peer-thread peer-threads)
 	 (setf (getf %all-queues
 		     (THREAD-get-thread-name-symbol new-peer-thread))
-	       (THREAD-get-control-queue new-peer-thread))))
-      (RIB-PEER     ;; message sent from peer thread to register itself in the rib-loc, creates entry in the rib-peer table
+	       (THREAD-get-control-queue new-peer-thread))))))
+  #|    (RIB-PEER     ;; message sent from peer thread to register itself in the rib-loc, creates entry in the rib-peer table
        (let ((peer-thread-name (MSG-get-arg2 %message))
 	     (rib-peer (MSG-get-arg3 %message)))
 	 (format t "~&SETTING RIB-PEER ~S : ~S~%" peer-thread-name rib-peer)
 	 (RIB-LOC-add-peer rib-loc rib-peer)
-	 (format t "~&RIB-LOC-get-peers: ~S~%" (RIB-LOC-get-peers rib-loc))))))
+	 (format t "~&RIB-LOC-get-peers: ~S~%" (RIB-LOC-get-peers rib-loc)))))) |#
    
    (GET
     (case (MSG-get-arg1 %message)
       (*NLRI-CACHE*    (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name '*NLRI-CACHE* *nlri-cache*)))
       (RIB-LOC         (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name rib-loc)))
-      (ROUTER-CONFIG   (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name router-config)))
-      (PEER-CONFIGS    (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name peer-configs)))))
-
+      (ROUTER-CONFIG   (QUEUE-send-message %control-queue (MSG-make 'TO 'CONTROL %this-thread-name router-config)))))
+   
    (SET
     (case (MSG-get-arg1 %message)
       (ROUTER-CONFIG                            ; example %message = '(SET ROUTER-CONFIG (ROUTER-CONFIG ROUTER1 ... 
@@ -69,9 +68,9 @@
 
       (PEER-CONFIG
        (let* ((peer-config (MSG-get-arg2 %message))
-	      (peer-name (PEER-CONFIG-get-peer-name peer-config)))
-	 (setf (getf peer-configs peer-name) peer-config)
-	 (QUEUE-send-message (getf %all-queues peer-name) %message)))
+	      (thread-name (PEER-CONFIG-get-thread-name peer-config)))
+	 (RIB-LOC-add-peer-config rib-loc peer-config)
+	 (QUEUE-send-message (getf %all-queues thread-name) %message)))
       
       (*NLRI-CACHE*
        (setf *nlri-cache* (MSG-get-arg2 %message))                               
@@ -84,13 +83,13 @@
    (ANNOUNCE-RIB-ADJ->RIB-LOC
     (let* ((peer-thread-name   (MSG-get-arg1 %message))
 	   (rib-adj-entry-list (MSG-get-arg2 %message))
-	   (rib-peer           (RIB-LOC-get-rib-peer rib-loc peer-thread-name))
+	   (peer-config        (RIB-LOC-get-peer-config rib-loc peer-thread-name))
 	   (originated-time (sb-posix:time)))
 
       (RIB-LOC-set-new-announcements-flag rib-loc)
      
       (dolist (rib-adj-entry rib-adj-entry-list)
-	(RIB-LOC-add-rib-adj-entry RIB-Loc rib-peer originated-time rib-adj-entry)))) 
+	(RIB-LOC-add-rib-adj-entry RIB-Loc peer-config originated-time rib-adj-entry)))) 
    
    (WITHDRAWL-RIB-ADJ->RIB-LOC
     (let ((peer-thread-id     (MSG-get-arg1 %message))
@@ -108,12 +107,11 @@
    
    (ROUTER-TIMERS-rib-loc-scan-Timer-Expires
     ;; process announcements
-    (when (RIB-LOC-new-announcements-flag-set-p rib-loc)
+    (when (and rib-loc
+	       (RIB-LOC-new-announcements-flag-set-p rib-loc))
       (format t "~&ENTERING LOOP-END-BLOCK process updates~%")
       ;; collect announcements with best-path flag set, to send to peer threads
-      (let ((new-announcements (RIB-LOC-collect-if #'(lambda (rib-entry)
-							(and (RIB-ENTRY-best-path-flag-setp rib-entry)
-							     (RIB-ENTRY-new-announcement-flag-setp rib-entry)))
+      (let ((new-announcements (RIB-LOC-collect-if #'RIB-ENTRY-new-announcement-flag-setp
 						   rib-loc)))
 	(when new-announcements
 	  ;; sort in path-attribute-list order
@@ -133,13 +131,12 @@
       ;; clear global new-announcement flag
       (RIB-LOC-clear-new-announcements-flag rib-loc))
 
-    (when (RIB-LOC-new-withdrawls-flag-set-p rib-loc)
+    (when (and rib-loc
+	       (RIB-LOC-new-withdrawls-flag-set-p rib-loc))
       ;; process withdrawls
 
       ;; collect withdrawn routes with best-path flag set, to send to peer threads
-      (let ((new-withdrawls (RIB-LOC-collect-if #'(lambda (rib-entry)
-						    (and (RIB-ENTRY-best-path-flag-setp rib-entry)
-							 (RIB-ENTRY-new-withdrawl-flag-setp rib-entry)))
+      (let ((new-withdrawls (RIB-LOC-collect-if #'RIB-ENTRY-new-withdrawl-flag-setp
 						rib-loc)))
 	(when new-withdrawls
 	  ;; sort in path-attribute-list order
@@ -162,13 +159,12 @@
     (ROUTER-TIMERS-start-rib-loc-scan-Timer router-timers %this-thread-name))
     
    (PRINT-ENV2
-    (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%router-config: ~S~%peer-configs: ~S~%"
+    (format t "~&~S PRINT-ENV2~%tcpserver-thread: ~S~%peer-threads: ~S~%RIB-Loc: ~S~%router-config: ~S~%"
 	    %this-thread-name
 	    tcpserver-thread
 	    peer-threads
 	    RIB-Loc
-	    router-config
-	    peer-configs)))
+	    router-config)))
 
   :loop-end-block
   ())

@@ -1,13 +1,14 @@
 (in-package :sbgp)
 
 ;; static config
-(defun PEER-CONFIG-get-peer-name (peer-config)           "-> symbol"            (cadr peer-config))
+(defun PEER-CONFIG-get-thread-name (peer-config)         "-> symbol"            (cadr peer-config))
 (defun PEER-CONFIG-get-flags (peer-config)               "-> u56"               (caddr peer-config))
 (defun PEER-CONFIG-get-peer-ip-address (peer-config)     "-> IPV4 | IPV6"       (cadddr peer-config))
-(defun PEER-CONFIG-get-peer-asn (peer-config)            "-> u32"               (car (cddddr peer-config)))
-(defun PEER-CONFIG-get-hold-time (peer-config)           "-> integer (seconds)" (cadr (cddddr peer-config)))
-(defun PEER-CONFIG-get-address-family-list (peer-config) "-> list of AFISAFI"   (caddr (cddddr peer-config)))
-(defun PEER-CONFIG-get-capability-set (peer-config)      "-> list of BGP-CAP-"  (cadddr (cddddr peer-config)))
+(defun PEER-CONFIG-get-peer-router-id (peer-config)      "-> IPV4"              (car (cddddr peer-config)))
+(defmacro PEER-CONFIG-get-peer-router-id! (peer-config)  "-> IPV4"              `(car (cddddr ,peer-config)))
+(defun PEER-CONFIG-get-peer-asn (peer-config)            "-> u32"               (cadr (cddddr peer-config)))
+(defun PEER-CONFIG-get-hold-time (peer-config)           "-> integer (seconds)" (caddr (cddddr peer-config)))
+(defun PEER-CONFIG-get-address-family-list (peer-config) "-> list of AFISAFI"   (cadddr (cddddr peer-config)))
 
 (defconstant +PEER-CONFIG-flag-ebgp+      #x01)
 (defconstant +PEER-CONFIG-flag-rr-client+ #x02)
@@ -19,25 +20,22 @@
   (= +PEER-CONFIG-flag-rr-client+ (logand +PEER-CONFIG-flag-rr-client+
 				     (PEER-CONFIG-get-flags peer-config))))
 
-(defun PEER-CONFIG-make (peer-name
+(defun PEER-CONFIG-make (thread-name
 			 &key (flags (+ +PEER-CONFIG-flag-ebgp+ +PEER-CONFIG-flag-rr-client+))
 			   peer-ip-address
+			   peer-router-id
 			   peer-asn
 			   (hold-time 90)
 			   (address-family-list (list +AFISAFI-ipv4-unicast+
-						      +AFISAFI-ipv6-unicast+))
-			   (capability-set (cons (BGP-CAP-4-OCTET-ASN-make peer-asn)
-						 (cons (BGP-CAP-ROUTE-REFRESH-make)
-						       (loop for afisafi in address-family-list
-							     collect (BGP-CAP-MP-EXTENSIONS-make afisafi))))))
+						      +AFISAFI-ipv6-unicast+)))
   (list 'PEER-CONFIG
-	peer-name
+	thread-name
 	flags
 	peer-ip-address
+	peer-router-id
 	peer-asn
 	hold-time
-	address-family-list
-	capability-set))
+	address-family-list))
   
 ;; negotiated session state config
 (defmacro PEER-SESSION-STATE-get-4-octet-asn-flag (session-state)          "-> [t|nil]"           `(svref ,session-state 1))

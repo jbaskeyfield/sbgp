@@ -53,13 +53,14 @@
    (RIB-Adj-in nil)
    (RIB-Adj-out nil)
 
-   (*nlri-cache* nil)                                 ; used by RIB-ADJ-ENTRY-make on receipt of Updates from netiorx
-   (*path-attrib-cache* nil)                          ; used by <PATH-ATTRIB>-make
-   (*path-attrib-list-cache* nil)                     ; used by RIB-ADJ-ENTRY-make on receipt of Updates from netiorx
+   (*nlri-cache* nil)                                   ; used by RIB-ADJ-ENTRY-make on receipt of Updates from netiorx
+   (*path-attrib-cache* nil)                            ; used by <PATH-ATTRIB>-make
+   (*path-attrib-list-cache* nil)                       ; used by RIB-ADJ-ENTRY-make on receipt of Updates from netiorx
 
-   (router-config nil)                                ; ROUTER-CONFIG
-   (peer-config nil)                                  ; PEER-CONFIG
-   (peer-session-state (PEER-SESSION-STATE-make))     ; PEER-SESSION-STATE
+   (router-config nil)                                  ; ROUTER-CONFIG
+   (peer-config nil)                                    ; PEER-CONFIG
+   (capability-set (list (BGP-CAP-ROUTE-REFRESH-make))) ; default BGP-CAPS, other caps added to list on 'set router-config' and 'set peer-config'
+   (peer-session-state (PEER-SESSION-STATE-make))       ; PEER-SESSION-STATE
 
    (PEER-timers (PEER-TIMERS-make-default))
    (*debug-peer-timers* *debug-peer-timers*)
@@ -154,8 +155,17 @@
        (setf *path-attrib-list-cache* (MSG-get-arg2 %message))) ; shadowed locally (used by RIB-ADJ-ENTRY-make)
       
       ;; config and state objects
-      (ROUTER-CONFIG            (setf router-config (MSG-get-arg2 %message)))
-      (PEER-CONFIG              (setf peer-config (MSG-get-arg2 %message)))
+      (ROUTER-CONFIG
+       (setf router-config (MSG-get-arg2 %message))
+       (push (BGP-CAP-4-OCTET-ASN-make (ROUTER-CONFIG-get-local-asn router-config))
+	     capability-set))	       
+
+      (PEER-CONFIG
+       (setf peer-config (MSG-get-arg2 %message))
+       (loop for afisafi in (PEER-CONFIG-get-address-family-list peer-config)
+	     do (push (BGP-CAP-MP-EXTENSIONS-make afisafi)
+		      capability-set)))
+       
       (FSM-STATE                (setf FSM-state (MSG-get-arg2 %message)))
       (FSM-TIMERS               (setf FSM-timers (MSG-get-arg2 %message)))
       (FSM-ATTRIB               (setf FSM-attrib (MSG-get-arg2 %message)))
@@ -172,8 +182,9 @@
    (ANNOUNCE-RIB-LOC->RIB-ADJ
     (let* ((rib-entries (MSG-get-arg1 %message))
 	   (rib-adj-entries (loop for rib-entry in rib-entries
-				  when (not (eq %this-thread-name      ;; TODO rib-loc -> rib-adj filter/update function
-					        (RIB-PEER-get-thread-name (RIB-ENTRY-get-rib-peer rib-entry))))
+				  ;; TODO rib-loc -> rib-adj filter/update function
+				  when (not (eq %this-thread-name
+					        (PEER-CONFIG-get-thread-name (RIB-ENTRY-get-peer-config rib-entry))))
 				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
 
       (dolist (rib-adj-entry rib-adj-entries)
@@ -190,7 +201,7 @@
     (let* ((rib-entries (MSG-get-arg1 %message))
 	   (rib-adj-entries (loop for rib-entry in rib-entries                       
 				  when (not (eq %this-thread-name                     ;; TODO rib-loc -> rib-adj filter/update function
-					        (RIB-PEER-get-thread-name (RIB-ENTRY-get-rib-peer rib-entry))))
+					        (PEER-CONFIG-get-thread-name (RIB-ENTRY-get-peer-config rib-entry))))
 				    collect (RIB-ENTRY-get-rib-adj-entry rib-entry))))
       
       (dolist (rib-adj-entry rib-adj-entries)
@@ -440,7 +451,7 @@
 				     (BGP-OPEN-make (ROUTER-CONFIG-get-local-asn router-config)
 						    (PEER-CONFIG-get-hold-time peer-config)
 						    (ROUTER-CONFIG-get-router-id router-config)
-						    (PEER-CONFIG-get-capability-set peer-config))))
+						    capability-set)))
       
        ;; sets its hold timer to a large value, and
        (FSM-TIMERS-start-HoldTimer-LargeValue FSM-timers %this-thread-name)
@@ -542,8 +553,7 @@
 					    (BGP-OPEN-make (ROUTER-CONFIG-get-local-asn router-config)
 							   (PEER-CONFIG-get-hold-time peer-config)
 							   (ROUTER-CONFIG-get-router-id router-config)
-							   (PEER-CONFIG-get-capability-set peer-config))))
-	      
+							   capability-set)))
 	      ;; sets its HoldTimer to a large value, and
 	      (FSM-TIMERS-start-HoldTimer-LargeValue FSM-timers %this-thread-name)
 	      
@@ -701,6 +711,8 @@
 
 	 (setf (PEER-SESSION-STATE-get-peer-router-id peer-session-state) 
 	       (BGP-OPEN-get-bgp-id bgp-open-msg))
+	 (setf (PEER-CONFIG-get-peer-router-id! peer-config)
+	       (BGP-OPEN-get-bgp-id bgp-open-msg))
 	 
 	 (setf (PEER-SESSION-STATE-get-peer-asn peer-session-state)
 	       (BGP-OPEN-get-my-as bgp-open-msg))
@@ -710,7 +722,7 @@
 
 	 (setf (PEER-SESSION-STATE-get-common-capability-set peer-session-state)
 	       (intersection (PEER-SESSION-STATE-get-peer-advertised-caps peer-session-state)
-			     (PEER-CONFIG-get-capability-set peer-config)
+			     capability-set
 			     :test #'equal))
 	 
 	 (cond ((tl-find-in-tree 'BGP-CAP-4-OCTET-ASN (PEER-SESSION-STATE-get-common-capability-set peer-session-state))
@@ -1001,15 +1013,6 @@
        (FSM-TIMERS-start-HoldTimer FSM-timers %this-thread-name)
 
        ;; changes its state to Established.
-       (QUEUE-send-message %control-queue
-			   (MSG-make 'ADD 'RIB-PEER
-				     %this-thread-name
-				     (RIB-PEER-make %this-thread-name
-						    (PEER-CONFIG-get-flags peer-config)
-						    (PEER-SESSION-STATE-get-peer-router-id peer-session-state)
-						    (PEER-CONFIG-get-peer-ip-address peer-config)
-						    (PEER-CONFIG-get-peer-asn peer-config))))
-						    
        (when *debug-fsm-state* (format *debug-fsm-state* "~&~S FSM-STATE State change: ~S -> ESTABLISHED~%" %this-thread-name FSM-state))
        (setf FSM-state 'ESTABLISHED))
       

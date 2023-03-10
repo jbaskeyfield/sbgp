@@ -100,17 +100,19 @@
 (load "sbgp-update.lisp")                  ;; SBGP-UPDATE
 
 (load "list-utils.lisp")                   ;; remove-if!, remove-sublist-elements-if!
+
+(load "peer-config.lisp")                  ;; PEER-CONFIG
+(load "router-config.lisp")                ;; ROUTER-CONFIG
+
+(load "peer-timers.lisp")                  ;; PEER-TIMERS
+(load "router-timers.lisp")                ;; ROUTER-TIMERS
+
 (load "rib-adj.lisp")                      ;; RIB-ADJ-ENTRY, RIB-ADJ
 (load "rib-loc.lisp")                      ;; RIB-ENTRY, RIB-ENTRY-TABLE, RIB-LOC
 
 (load "tcpserver-timers.lisp")             
 (load "tcpserver.lisp")                    ;; TCPSERVER-thread-loop
 (load "netio.lisp")                        ;; NETIORX-thread-loop, NETIOTX-thread-loop
-
-(load "router-config.lisp")                ;; ROUTER-CONFIG
-(load "router-timers.lisp")                ;; ROUTER-TIMERS
-(load "peer-config.lisp")                  ;; PEER-CONFIG
-(load "peer-timers.lisp")                  ;; PEER-TIMERS
 
 (load "fsm-timers.lisp")
 (load "fsm-attrib.lisp")
