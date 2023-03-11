@@ -5,12 +5,13 @@ slot elements = list of RIB-ADJ-ENTRY ((nlri pa-list)* ... )
 each rib-adj entry contains a single nlri (nlri object with additional hash value as cadr) and pa-list-h (list of path-attrib objects with hash value as cadr)
 |#
 
-(defun RIB-ADJ-ENTRY-get-nlri (entry)          "-> NLRI"                  (car entry))
-(defun RIB-ADJ-ENTRY-get-pa-list (entry)       "-> list of PATH-ATTRIB"   (cadr entry))
+(defun RIB-ADJ-ENTRY-get-nlri (entry)          "-> NLRI"                  (cadr entry))
+(defun RIB-ADJ-ENTRY-get-pa-list (entry)       "-> list of PATH-ATTRIB"   (caddr entry))
 
 (defun RIB-ADJ-ENTRY-make (nlri pa-list)  ; TODO can add code here to cache object and subobjects
   ;; object is untagged list (list nlri pa-list)
-  (list (if *nlri-cache*
+  (list 'RIB-ADJ-ENTRY
+        (if *nlri-cache*
             (NLRI-CACHE-ro-lookup *nlri-cache*
 				  nlri
 				  (NLRI-zhash 0 nlri))
@@ -21,7 +22,6 @@ each rib-adj entry contains a single nlri (nlri object with additional hash valu
 			  (PATH-ATTRIB-zhash-list pa-list))
 	    pa-list)))
 
-(defmacro RIB-ADJ-get-name (rib-adj)                    `(svref ,rib-adj 0))
 (defmacro RIB-ADJ-get-num-bits (rib-adj)                `(svref ,rib-adj 1))
 (defmacro RIB-ADJ-get-table-size (rib-adj)              `(svref ,rib-adj 2))
 (defmacro RIB-ADJ-get-empty-slot-count (rib-adj)        `(svref ,rib-adj 3))
